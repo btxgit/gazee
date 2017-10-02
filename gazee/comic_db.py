@@ -15,6 +15,7 @@ import sqlite3
 import shutil
 import math
 import glob
+import time
 from multiprocessing import Pool
 from gazee.archive import extract_thumb, extract_archive
 from gazee.db import gazee_db
@@ -43,6 +44,8 @@ class comic_db(gazee_db):
     dir_cache = {}
     fn_cache = {}
     data_dir = None
+    last_thumb_time = None
+    
     c = None
 
     def __init__(self):
@@ -239,6 +242,12 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         return cp2
         
     def reset_missing_covers(self, wid, ht):
+        timenow = time.time()
+        
+        if (self.last_thumb_time is not None) and ((self.last_thumb_time + 60) > timenow):
+            self.logger.debug("Too soon after a thumb to reset_missing_covers()")
+            return
+        
         resetids = []
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
             for row in con.execute('''SELECT comicid FROM all_comics WHERE image is not null;'''):
@@ -367,6 +376,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         while True:
             rv = self.get_thumb_to_process(20)
+            last_thumb_time = time.time()
             params = []
 
             if rv is None or len(rv) == 0:
@@ -441,6 +451,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                 self.update_comic_meta(cid, num_pages, series, issue)
             self._pct = ((self._numrecs - self._pending) / self._numrecs)
         self.logger.info("Created %d thumbnails...", created)
+        last_thumb_time = None
         return True
 
     def do_extract_book(self, cid, username):
