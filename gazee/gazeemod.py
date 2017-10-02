@@ -190,10 +190,11 @@ class Gazeesrv(object):
         """
         if not isinstance(cid, int):
             cid = int(cid, 10)
-            ctup = self.cdb.get_nextprev_cids(cid, True)
-            self.logger.debug("CID: %d Ctup: %s" % (cid, str(ctup)))
-            d = {'PrevCID': ctup[0], 'NextCID': ctup[1], 'Title': ctup[2], 'Pages': ctup[3]}
-            return json.dumps(d)
+            
+        ctup = self.cdb.get_nextprev_cids(cid, True)
+        d = {'PrevCID': ctup[0], 'NextCID': ctup[1], 'Title': ctup[2], 'Pages': ctup[3]}
+        self.logger.debug(d)
+        return json.dumps(d)
 
     @cherrypy.expose
     def search(self, page_num=1, search_string=''):
@@ -265,8 +266,7 @@ class Gazeesrv(object):
         if not isinstance(page_num, int):
             page_num = int(page_num, 10)
 
-        if (cid > 0) and (ncid == -1) or (pcid == -1):
-            pcid, ncid, title, pages = self.cdb.get_nextprev_cids(cid, True)
+        pcid, ncid, title, pages = self.cdb.get_nextprev_cids(cid, True)
 
         opath = "%s/Books/%s/%d" % (gazee.config.TEMP_PATH, username, cid)
 

@@ -1,8 +1,8 @@
 ![Gazee](/public/images/logo.png)
 
-Gazee is a comic viewer for the web browser.
-
-Read and reach your favorite digital comics from almost any web connected device.
+Gazee is a comic viewer for the web browser.  This is a re-factor of the
+original, made with the main author's blessings.  I tore some stuff out.  It
+was easier to start a new repo.
 
 Works great with [Mylar](https://github.com/evilhero/mylar) comic book management, but not needed.
 
@@ -12,20 +12,14 @@ Questions can also be asked in the #gazee channel on Freenode
 
 ## Features
 
-Recent Comics
-![screen01](http://i.imgur.com/4cRYbJP.jpg)
+Index - Nice big cover thumbs
+![screen01](https://32images.com/i/eaisme33.jpg)
 
-Exposes your sorting structure in a library view
-![screen02](http://i.imgur.com/LuJDAAG.jpg)
-Download your issue if you have a preferred reader outside of Gazee and read a summary of the issue in line if available with your archive
-![screen03](http://i.imgur.com/NcgCQTq.jpg)
+Index - Smaller cover thumbs
+![screen02](https://32images.com/i/sea3aeag.jpg)
 
-Make Gazee yours and change up the color scheme
-![screen04](http://i.imgur.com/xCLoowh.jpg)
-![screen05](http://i.imgur.com/F5mb0bA.jpg)
-
-Settings overlay to make the comic feel how you want it.
-![screen06](http://i.imgur.com/t0NsWMp.jpg)
+The reader has views and whatnot.
+![screen03](https://32images.com/i/gag3ssg2.jpg)
 
 HTTPS Support
 
@@ -39,7 +33,6 @@ Much more to come!
 * Python 3.6
 * CherryPy
 * Mako
-* xmltodict
 * Pillow
 * rarfile
 * GitPython
