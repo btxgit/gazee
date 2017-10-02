@@ -250,6 +250,7 @@ class Gazeesrv(object):
                 return imgfd.read()
         else:
             self.logger.warning("Cover %d is missing!", id)
+            self.cdb.reset_missing_covers(gazee.config.THUMB_MAXWIDTH, gazee.config.THUMB_MAXHEIGHT)
 
     @cherrypy.expose
     def read_comic(self, cid=-1, ncid=-1, pcid=-1, page_num=-1):

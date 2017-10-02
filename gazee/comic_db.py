@@ -212,7 +212,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         return
 
-    def get_cache_path(self, cid, twid=-1, tht=-1):
+    def get_cache_path(self, cid, twid=-1, tht=-1, forceproc=0):
         CACHE_PER_DIR = 512
         part = (cid // CACHE_PER_DIR)
         resext = "%dx%d" % (twid, tht) if twid > 0 else "native"
@@ -226,13 +226,35 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         cfn1 = 'p%d-%s.jpg' % (cid, resext)
         cp1 = os.path.join(cachepath, cfn1)
+        if forceproc == 1:
+            return cp1
         cfn2 = '%d-%s.jpg' % (cid, resext)
         cp2 = os.path.join(cachepath, cfn2)
+        if forceproc == 2:
+            return cp2
 
         if os.path.exists(cp1):
             return cp1
 
         return cp2
+        
+    def reset_missing_covers(self, wid, ht):
+        resetids = []
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            for row in con.execute('''SELECT comicid FROM all_comics;'''):
+                cid = row[0]
+                tp = self.get_cache_path(cid, wid, ht)
+                if not os.path.exists(tp):
+                    resetids.append((cid, ))
+                    
+        self.logger.info("Resetting %d image fields to add in support for thumbs that are %dx%d.", len(resetids),  wid, ht)
+        
+        sql = '''UPDATE all_comics SET image=null WHERE comicid=?'''
+        
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            con.executemany(sql, resetids)
+            con.commit()
+        
 
     def scan_directory_tree(self, curdir, parentid):
         self.logger.debug("Scanning comic dir: %s" % curdir)
@@ -240,7 +262,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         addlist = []
         num_fn_added = 0
         num_dirs_deleted = 0
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
 
         for dirpath, dirnames, filenames in os.walk(curdir, topdown=False, followlinks=True):
             addfns = []
@@ -253,7 +275,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
             for ttfn in filenames:
                 if not isinstance(ttfn, str):
-                    ttfn = bytes(ttfn).decode('utf-8')
+                    ttfn = str(ttfn, 'utf-8')
                 tmpfn, tmpext = os.path.splitext(ttfn)
                 if not tmpext.lower() in ['.cbr','.cbz']:
                     continue
@@ -262,14 +284,14 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                     self.fn_cache[curdirid] = {}
                 if ttfn not in self.fn_cache[curdirid]:
                     cfn = os.path.normpath(os.path.join(p, ttfn))
-                    bytes = os.path.getsize(cfn)
-                    addfns.append( (curdirid, ttfn, bytes))
+                    filebytes = os.path.getsize(cfn)
+                    addfns.append( (curdirid, ttfn, filebytes))
 
             if len(addfns) > 0:
                 num_fn_added += len(addfns)
                 sql = '''INSERT INTO all_comics(dirid, filename, filesize) VALUES (?, ?, ?)'''
-                conn.executemany(sql, addfns)
-                conn.commit()
+                con.executemany(sql, addfns)
+                con.commit()
 
             parentid = curdirid
 
@@ -280,28 +302,28 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         ratio = (1.0) * width / height if (height != 0) else 0.0
 
-        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
 
             sql = '''UPDATE all_comics SET image=?, width=?, height=?, ratio=? WHERE comicid=?;'''
             param = (val, width, height, ratio, cid)
-            conn.execute(sql, param)
-            conn.commit()
+            con.execute(sql, param)
+            con.commit()
 
     def update_comic_meta(self, cid, num_pages, series, issue):
         sql = '''UPDATE all_comics SET name=?,issue=?,pages=? WHERE comicid=?;'''
         param = (series, issue, num_pages, cid)
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        conn.execute(sql, param)
-        conn.commit()
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        con.execute(sql, param)
+        con.commit()
 
     def get_comic_path(self, cid):
         sql = '''SELECT comicid, d.full_dir_path || '/' || c.filename as fullpath FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) WHERE (c.comicid=?)'''
         params = (cid, )
 
-        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
             tpath = None
 
-            for row in conn.execute(sql, params):
+            for row in con.execute(sql, params):
                 comicid, tpath = row
 
         if tpath is None:
@@ -314,8 +336,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         sql = '''SELECT c.comicid, d.full_dir_path || '/' || c.filename as fullpath FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) WHERE (c.image is null) LIMIT ?'''
         cid = fullpath = None
 
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = conn.cursor()
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        curs = con.cursor()
 
         rv = []
 
@@ -329,9 +351,9 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
     def reset_unprocessed_thumbs(self):
         sql = '''UPDATE all_comics SET image=null WHERE image=''; '''
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        conn.execute(sql)
-        conn.commit()
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        con.execute(sql)
+        con.commit()
 
     def do_thumb_job(self):
         created = 0
@@ -356,10 +378,13 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                     break
 
                 tl = []
-
-                for res in [ (0, 0), (225, 300), (300, 400) ]:
+                
+                thumbsize = (gazee.config.THUMB_MAXWIDTH, gazee.config.THUMB_MAXHEIGHT)
+                
+                for res in [ (0, 0), thumbsize ]:
                     rx, ry = res
-                    opath = self.get_cache_path(cid, rx, ry)
+                    fprc = 2 if rx == 0 else 1
+                    opath = self.get_cache_path(cid, rx, ry, fprc)
                     tl.append( (rx, ry, opath) )
 
                 param = (comicpath, cid, tl)
@@ -491,12 +516,12 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         cpath = gazee.config.COMIC_PATH
         cpath = '/Volumes/6TB/Comics'
         retl = []
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
         cids = []
         rnum = 0
 
         self.logger.debug("Executing SQL: %s", sql)
-        for row in conn.execute(sql, t):
+        for row in con.execute(sql, t):
             cid, name, img, issue, vol, summary, fullpath, adddate, filesize, pages, pubname  = row
 #            if summary is not None and '\\n' in summary:
 #                print(summary)
@@ -535,29 +560,29 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
     def get_recent_comics_count(self, days):
         sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = conn.cursor()
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        curs = con.cursor()
 
         row = curs.execute(sql).fetchone()
         return row[0]
 
     def get_all_comics_count(self):
         sql = '''SELECT COUNT(*) FROM all_comics;'''
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        row = conn.execute(sql).fetchone()
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        row = con.execute(sql).fetchone()
         return row[0]
 
     def get_unprocessed_comics_count(self):
         sql = '''SELECT COUNT(*) FROM all_comics WHERE image is null;'''
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        row = conn.execute(sql).fetchone()
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        row = con.execute(sql).fetchone()
         return row[0]
 
     def get_comics_stats(self, days=7):
         sql = '''SELECT COUNT(*), SUM(filesize) FROM all_comics'''
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = conn.cursor()
-        num_comics, sizeval = conn.execute(sql).fetchone()
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        curs = con.cursor()
+        num_comics, sizeval = con.execute(sql).fetchone()
         if not isinstance(num_comics, int):
             num_comics = int(num_comics, 10)
         num_comics = '{:,d}'.format(num_comics)

@@ -15,6 +15,7 @@ import rarfile
 import traceback
 from io import BytesIO
 from PIL import Image
+import subprocess
 import math
 
 
@@ -86,15 +87,14 @@ def extract_all_images(ao, outdir, imgpfx=''):
         tfn = '%s%04d%s' % (imgpfx, page, tmpext)
         ofn = os.path.join(outdir, tfn)
 
-        print(ofn)
-
+#        print(ofn)
         with ao.open(rfi, 'r') as archread:
             with open(ofn, 'wb') as fd:
                 fd.write(archread.read())
                 num_extracted += 1
                 ifiles.append(ofn)
 
-    print("Extracted %d pages of to %s." % (num_extracted, outdir))
+#    print("Extracted %d pages of to %s." % (num_extracted, outdir))
     return ifiles
 
 def extract_thumb(crl):
@@ -129,7 +129,7 @@ def extract_thumb(crl):
 
     writtenlist = []
     tl = []
-
+    natpath = None
     for tli in reslist:
         rx, ry, opath = tli
 
@@ -141,10 +141,24 @@ def extract_thumb(crl):
 #            print("Position: %d" % sio.tell())
             s = sio.read()
             with open(opath, 'wb') as fd:
+                natpath = opath
                 fd.write(s)
             t = (cid, opath)
             continue
+        
+        script = os.path.realpath('./imageborder')
 
+        mkregthumb = True
+
+        if os.path.exists(script):
+            args = ['/bin/bash', script, '-T', '%dx%d' % (rx,ry), natpath, opath]
+            
+            process = subprocess.Popen(args, shell=False)
+            process.wait()
+            mkregthumb = False
+        
+#        os.system('/bin/bash %s -T %dx%d "%s" "%s"' % (script, rx, ry, natpath, opath))
+        
         copyim = im.copy()
         w = copyim.width
         h = copyim.height
@@ -153,16 +167,18 @@ def extract_thumb(crl):
 
         if (ratio > 1.15):
             rot = 90
-            rcopyim = copyim.rotate(rot, Image.BICUBIC, 1)
-            rcopyim.thumbnail(thumbres)
-            rcopyim.save(opath, quality=85)
+            if mkregthumb:
+                rcopyim = copyim.rotate(rot, Image.BICUBIC, 1)
+                rcopyim.thumbnail(thumbres)
+                rcopyim.save(opath, quality=85)
         else:
-            copyim.thumbnail(thumbres)
-            copyim.save(opath, quality=85)
+            if mkregthumb:
+                copyim.thumbnail(thumbres)
+                copyim.save(opath, quality=85)
 
     resd = {'error': False, 'cid': cid, 'num_pages': num_pages, 'owidth': w, 'oheight': h, 'ratio': ratio, 'twidth': thumbres[0], 'theight': thumbres[1], 'rot': rot, 'path': cp, 'tpath': opath}
 
-    print("Saved thumb: %s" % opath)
+#    print("Saved thumb: %s" % opath)
     return resd
 
 

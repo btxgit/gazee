@@ -376,12 +376,12 @@ declare -a DIM=`convert "$tmpA" -ping -format "(%w %h)" info:`
 wd=${DIM[0]}
 ht=${DIM[1]}
 
-echo "Current width: ${wd}   current height: ${ht}"
+# echo "Current width: ${wd}   current height: ${ht}"
 
 wsize=`echo "scale=0; ((${targetw} - ${wd}) / 2)" | bc`
 hsize=`echo "scale=0; ((${targeth} - ${ht}) / 2)" | bc`
 
-echo "width border: ${wsize}  height border: ${hsize}"
+# echo "width border: ${wsize}  height border: ${hsize}"
 
 # set output image size
 ww=`convert xc: -format "%[fx:$wd+2*$wsize]" info:`
