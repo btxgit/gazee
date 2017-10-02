@@ -1,0 +1,185 @@
+<%!
+	import gazee, os
+%>
+<!DOCTYPE html>
+<html lang="en">
+<%include file="header.html" />
+<body style="text-align: center;">
+<div style="display: none;" id="gazeeconf">
+<%include file="cfgform.html" />
+</div>
+<header>
+<nav role="navigation" class="navbar navbar-expand-lg navbar-dark bg-dark justify-content-between" style="display: inline-block;">
+    <a class="navbar-brand" style="float: left; display: inline-block;" href="#!">GAZEE</a>
+    <form class="form-inline my-2 my-lg-0" style="display: inline-block;" >
+      <input class="form-control mr-sm-2" type="text" placeholder="Search">
+      <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+    </form>
+    <div class="nav-item" style="float: right; padding: 8px 10px 0 0;">
+      <a id="setanc"><i class="material-icons ilink">settings</i></a>
+    </div>
+</nav>
+</header>
+
+<div id="pgcontent">
+  <div id="pagination" style="width: 100%;">
+      <%include file="pagination.html" args="pages=pages, current_page=current_page, num_of_pages=num_of_pages"/>
+  </div>
+  <%include file="comicrender.html" args="comics=comics, maxht=maxht, maxwid=maxwid" />
+</div>
+<footer class="page-footer" id="footer">
+    <div class="container-fluid">
+        <div class="row justify-content-md-center">
+            <div class="col col-sm align-self-center">
+                Total Number of Comics: ${num_comics}
+            </div>
+            <div class="col col-sm align-self-center">
+                Recently Added Comics: ${num_recent}
+            </div>
+            <div class="col col-sm align-self-center">
+                Total Shared: ${total_bytes}
+            </div>
+        </div>
+    </div>
+</footer>
+	
+<script type="text/javascript">
+      $(document).ready(function() {
+        check_hash_change()
+        
+        $(window).on('hashchange', function() {
+            check_hash_change()
+        });
+        $('#pgcontent').on('click', 'span.paglink', function() {
+            if ($(this).is('.disabled')) {
+                console.debug("Link is disabled.  Ignoring.")
+                return;
+            }
+
+            var pgnum = $(this).attr('pg')
+            var hval = window.location.hash.substr(1)
+            
+            console.log("Clicked on " + pgnum)
+            
+            if (hval != pgnum) {
+                console.log("Switching hash to " + pgnum)
+                window.location.hash = pgnum
+            } else {
+                console.debug("Hash=" + hval + " pgnum: " + pgnum)
+            }
+        })
+        
+        $("#dropdown-item").click(function() {
+          window.location.href = $(this).attr('href');
+        });
+        
+        $('#setanc').click(function() {
+          show_config();
+        });
+        
+        $('#pgcontent').on('click', 'span.uline i.dlicon', function() {
+           var cid = $(this).attr('cid')
+           console.log("Clicked on the dlicon for CID: " + cid)
+           var u = '/dlbook?id=' + cid
+           window.location.href = u;
+           return;
+        });
+
+        $('#pgcontent').on('click', 'span.uline i.expicon', function() {
+           var ttxt = $(this).text();
+           var cid = $(this).attr('cid')
+           var tht = $('#outcov' + cid).height()
+           if (ttxt == 'expand_less') {
+               var nht = "" + tht + "px"
+               $('#cov' + cid).animate({ height: "0px"}, 300)
+               $('#outcov' + cid + ' div.ucwrap').animate({ height: nht}, 300)
+               $(this).text('expand_more')
+           } else {
+               var nht = "" + (tht - 45) + "px"
+               $('#cov' + cid).animate({ height: nht}, 300)
+               $('#outcov' + cid + ' div.ucwrap').animate({ height: "45px"}, 300)
+               $(this).text('expand_less')
+           }
+           console.log(ttxt);
+        });
+        
+        $(document).on('keyup', function(e) {
+            if (e.which === 39) {
+                console.log(e);
+                change_page(1)
+            } else if (e.which === 37) {
+                console.log(e);
+                change_page(-1)
+            }
+        })
+        
+        $('#gazeeconf button.btn-primary').on('click', function(e) {
+            e.preventDefault()
+
+            var u = "/save_settings?" + $('form').serialize()
+            console.log("Loading URL: " + u)
+            $.getJSON(u).done(function(data) {
+                console.log("Done saving...")
+                window.location.reload()
+            })
+        })
+      });
+      
+      function save_last_index_page(pg) {
+        window.localStorage.setItem('index-lastpage', '' + pg)
+        console.log("Current last index page: " + pg)
+      }
+      
+      function check_hash_change() {
+          var hval = window.location.hash.substr(1)
+          var curl = $('span.paglink.active').attr('pg')
+
+          console.log("Saw a hash change...")
+
+          if ((hval === '') || (hval === curl)) {
+             save_last_index_page(curl)
+             console.log("On proper page already.")
+             return
+          }
+
+          console.log("Switching to page: " + hval)
+          
+
+          var u = '/aindex?page_num=' + hval
+          $('#pgcontent').load(u, function() {
+              $(document).scrollTop(0)
+              var pgnum = $('span.paglink.active').attr('pg');
+              save_last_index_page(pgnum)
+              console.log("Injected url: " + u)
+          })
+      }
+      
+      function change_page(delta) {
+          var curpg = parseInt($('span.paglink.active').text(), 10)
+          var lastpg = parseInt($('ul.pagination').attr('lastpg'), 10)
+          var newpg = (curpg + delta)
+          
+          if ((newpg < 1) || (newpg > lastpg))
+              return
+              
+          window.location.hash = newpg
+      }
+      
+      function show_config() {
+          $.getJSON('/load_settings').done(function(data) {
+              $('#gazeeconf').show()
+              $('header').hide()
+              $('footer').hide()
+              $('#pgcontent').hide()
+              $(document).scrollTop(0)
+              $('#cpinput').val(data.comicPath)
+              $('#thumbsel').val(data.thumbRes)
+              $('#csiinput').val(data.scanInterval)
+              $('#nppinput').val(data.perPage)
+          })
+      }
+      
+</script>
+	
+</body>
+</html>

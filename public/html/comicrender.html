@@ -1,0 +1,42 @@
+<%page args="comics, maxht, maxwid" />
+
+% for comic in comics:
+                  <div class="outerguess" id="outcov${comic['Key']}" style="height: ${maxht + 55}px;">
+                    <figure style="width: ${maxwid}px;">
+                      <a href="/read_comic?cid=${comic['Key'] | u}&ncid=${comic['NextCID'] | u}&pcid=${comic['PrevCID'] | u}" id="image-link"></a>
+                      <div id="cov${comic['Key']}" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
+                        <a href="/read_comic?cid=${comic['Key'] | u}&ncid=${comic['NextCID'] | u}&pcid=${comic['PrevCID'] | u}" class="image-link">
+                          <img class="smcover" style="max-height: ${maxht}px;" src="/cover?id=${comic['Key']}">
+                        </a>
+                      </div>
+                      <figcaption>
+                        <div class="ucwrap" style="height: 45px">
+                          <span class="uline">
+                          <i class="material-icons dlicon" cid="${comic['Key']}" style="float: left;">file_download</i></a>
+                          <i class="material-icons expicon" cid="${comic['Key']}" style="font-size: 12pt; float: right; font-weight: bold;">expand_less</i></a>
+                          <div class="ubooktitle">
+                            ${comic['ComicName'] | h} ${comic['ComicIssue'] | h}
+                          </div>
+                          </span>
+
+                          <div class="sizepg">
+                          <span style="float:left;">Pages: ${comic['Pages']}</span><span style="float:right;">Size: ${comic['Size']}</span>
+                          </div>
+
+                          <div class="ubookpath">
+                            Publisher: ${comic['PubName'] | h}
+                          </div>
+                          
+                          <div class="ubookpath">
+                            ${comic['RelPath'] | h}
+                          </div>
+  % if not comic['ComicSummary'] is None:
+                          <div class="ubooksummary">
+                          Summary: ${comic['ComicSummary']}
+                          </div>
+  % endif
+                        </div>
+                      </figcaption>
+                    </figure>
+                  </div>
+% endfor

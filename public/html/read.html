@@ -1,0 +1,377 @@
+<%!
+  import gazee
+%>
+    <!doctype html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html class="whole-page">
+    <%include file="header.html" />
+
+  <body class="inner-page">
+  <div class="reader-whole">
+    <div class="col s12 overlay-settings" style="display: none;">
+    <%include file="readhelp.html" />
+    </div>
+    <div class="reader-overlay" cid="${cid}" nop="${nop}" prevcid="${prevcid}" nextcid="${nextcid}" cpage="${current_page}" step="${dblpage}">
+      <img class="pgone" src="${now_page}"/>
+      <img class="pgtwo" style="display: none;" src=""/>
+    </div>
+  </div>
+  </body>
+  <div id="roverlay" style="z-index: -1; position: absolute;width: 98%;display:none; top: 288px;background-color: transparent;left: 1%;height: 60px;">
+    <span class="leftmsg badge-pill" style="background-color: black; color: white; float: left; padding: 15px 20px;"></span><span class="rightmsg badge-pill" style="background-color: black; float: right; color: white; padding: 15px 20px; z-index: -100;"></span>
+  </div>
+  <script type="text/javascript">
+    tmpev = null;
+    preloader = {}
+    savetimeout = null;
+    
+    function preload_single(cid, pg) {
+       var k = cid + "-" + pg;
+       if (k in preloader) {
+           console.log("Skipping " + pg)
+           return true;
+       }
+       console.log("Pre-loading " + pg + " with key: " + k)
+       
+       preloader[k] = new Image()
+       preloader[k].src = make_page_url(cid, pg)
+       $(preloader[k]).on('load', function() { 
+          console.log("Load event for " + $(this).attr('src') + " loaded.");
+       });
+       
+       console.log("Added debug element for: " + k);
+       return true;
+    }
+    
+    function make_page_url(cid, pg) {
+        return '/read_page?cid=' + cid + '&page_num=' + pg;
+    }
+    
+    function make_book_url(cid) {
+        return '/read_comic?cid=' + cid;
+    }
+    
+    function check_preload() {
+       var cid = parseInt($('div.reader-overlay').attr('cid'), 10)
+       var curpg = parseInt($('div.reader-overlay').attr('cpage'), 10)
+       var nop = parseInt($('div.reader-overlay').attr('nop'), 10)
+       var step = parseInt($('div.reader-overlay').attr('step'), 10)
+       var minpg = 1;
+       var maxpg = (nop - (step - 1));
+    
+       var st1 = curpg+1;
+       var end1 = st1 + 8;
+       var st2 = curpg-1;
+       var end2 = st2 - 4;
+       
+       if (end1 > nop) {
+          end1 = nop;
+       }
+       if (st1 > nop) {
+          st1 = -1;
+       }
+       if (end2 < 1) {
+          end2 = 1;
+       }
+       if (st2 < 1) {
+          st2 = -1;
+       }
+       
+       console.log("st1: " + st1 + " st2: " + st2 + " end1: " +  end1 + " end2: " + end2);
+       if (st1 > 0) {
+          var tpg;
+          for (tpg=st1; tpg<=end1; ++tpg) {
+              k = cid + "-" + tpg;
+              console.log("Trying tag: " + k);
+             preload_single(cid, tpg);
+          }
+       }
+       if (st2 > 0) {
+          for (tpg=st2; tpg >= end2; --tpg) {
+              k = cid + "-" + tpg;
+              preload_single(cid, tpg);
+          }
+       }
+    }
+    
+    function get_width() {
+       var savedwid = window.localStorage.getItem('gazee-width')
+       
+       if (savedwid === null) {
+           savedwid = 'norm'
+           window.localStorage.setItem('gazee-width', savedwid)
+       }
+       
+       return savedwid
+    }
+    
+    function get_last_index_page() {
+        var ind = window.localStorage.getItem('index-lastpage')
+        
+        if (ind === null) {
+            ind = ''
+            window.localStorage.setItem('index-lastpage', '')
+        }
+        
+        return ind
+    }
+    
+    function set_width(wid) {
+       window.localStorage.setItem('gazee-width', wid)
+    }
+
+    function get_step() {
+       var savestep = window.localStorage.getItem('gazee-step')
+       
+       if (savestep === null) {
+           savestep = '2'
+           window.localStorage.setItem('gazee-step', savestep)
+       }
+       
+       return parseInt(savestep, 10)
+    }
+    
+    function set_step(step) {
+       window.localStorage.setItem('gazee-step', '' + step)
+    }
+    
+    function set_cookie(cid, pg) {
+        var cookie_comic = "comicbook" + cid;
+        document.cookie = cookie_comic + "=" + pg + ";path='/';max-age=2419200"
+        console.log(">>>> Last page for cid=" + cid + " is: " + pg)
+    }
+    
+    function apply_settings() {
+        var curpg = parseInt($('div.reader-overlay').attr('cpage'), 10)
+        var cid = parseInt($('div.reader-overlay').attr('cid'), 10)
+        var nop = parseInt($('div.reader-overlay').attr('nop'), 10)
+        var twop = (curpg + 1)
+        var tstep = get_step()
+        var leftpg = null;
+        var rightpg = null;
+        
+        $('div.reader-overlay').attr('step', ''+tstep)
+
+        $('div.reader-overlay img').css('width', '')
+
+        console.log("step = " + tstep)
+        
+        leftpg = curpg;
+        if ((tstep === 1) || (curpg === 1) || (twop > nop)) {
+            $('div.reader-overlay img.pgtwo').hide()
+            rightpg = curpg;
+        } else {
+            var newurl = make_page_url(cid, twop)
+            rightpg = twop;
+            console.debug("Setting twopg URL to: " + newurl)
+            $('div.reader-overlay img.pgtwo').attr('src', newurl).show()
+        }
+        
+        $('span.leftmsg').text("" + leftpg)
+        $('span.rightmsg').text("" + rightpg)
+        topval = ($(window).height() - 60) / 2
+        $('#roverlay').css('top', topval).show()
+        
+        if (savetimeout !== null) {
+            savetimeout.reset();
+            console.log("timeout reset()");
+        } else {
+            savetimeout = $.timeoutWith(1000, $('#roverlay')).done(function() {
+                savetimeout = null;
+                $(this).fadeOut(300)
+            });
+            
+            console.log("timeout set.");
+        }
+        
+        var wid = get_width()
+        var cls = "reader-page-" + wid
+        
+        $('div.reader-overlay img.pgone').attr('class', cls + " pgone")
+        $('div.reader-overlay img.pgtwo').attr('class', cls + " pgtwo")
+
+        if (wid == 'norm') {
+            var maxwid = $(window).width()
+            var curwid = $('div.reader-overlay').width()
+
+            console.log("max: " + maxwid + " cur: " + curwid)
+
+            if (curwid > maxwid) {
+                $('div.reader-overlay img').css('width', '50%')
+            } 
+        }
+        
+    }
+    
+    $(function() {
+        $('body').css('display', 'block')
+        check_preload();
+/*
+        $(".reader-overlay").click(function() {
+            $('div.reader-overlay').hide()
+            $("div.overlay-settings").show()
+        });
+ */        
+        $('#clsettings-button').on('click', function() {
+            $('#page-settings-text').hide()
+            $('.reader-overlay').show()
+        });
+
+        var cid = parseInt($('div.reader-overlay').attr('cid'), 10)
+        $.getJSON('cidnav?cid=' + cid, function(o) {
+            $('div.reader-overlay').attr('prevcid', o.PrevCID);
+            $('div.reader-overlay').attr('nextcid', o.NextCID);
+        })
+        
+        apply_settings()
+
+        var curpg = parseInt($('div.reader-overlay').attr('cpage'), 10)
+        set_cookie(cid, curpg)
+
+        $(document).on("keydown", function(e) {
+            tmpev = e
+            var cid = parseInt($('div.reader-overlay').attr('cid'), 10)
+            var nop = parseInt($('div.reader-overlay').attr('nop'), 10)
+            var curpg = parseInt($('div.reader-overlay').attr('cpage'), 10)
+            var step = parseInt($('div.reader-overlay').attr('step'), 10)
+            var prevcid = parseInt($('div.reader-overlay').attr('prevcid'), 10)
+            var nextcid = parseInt($('div.reader-overlay').attr('nextcid'), 10)
+            var cookie_comic = "comicbook" + cid;
+
+            console.debug("cid: " + cid + " nop: " + nop + " curpg: " + curpg);
+
+            console.debug(e.which + " is the keycode. ");
+            
+            if ((e.which === 32) || (e.which === 35) || (e.which === 36) || (e.which === 37) || (e.which === 39)) { 
+                var newp=null;
+                var page_reload = false;
+                var twonp=null;
+                
+                if (e.which === 32) {
+                    var viewht = $(window).height()
+                    var docht  = $(document).height()
+                    var sctop = $(document).scrollTop()
+                    
+                    if ((sctop + viewht + 3) >= docht) {
+                        if (curpg === 1) {
+                            newp = curpg + 1;
+                        } else {
+                            newp = curpg + step;
+                        }
+                    } else  {
+                       sctop += viewht
+                       $(document).scrollTop(sctop);
+                       e.preventDefault()
+                       return false
+                    }
+                } else if (e.which === 36) {               // home
+                    newp = 1;
+                } else if (e.which === 35) {        // end
+                    newp = nop - (nop % 2)
+                } else if (e.which === 39) {
+                    if (curpg === 1) {
+                        newp = curpg + 1;
+                    } else {
+                        newp = curpg + step;
+                    }
+                } else if (e.which === 37) {
+                    if (curpg === 2) {
+                        newp = 1;
+                    } else {
+                        newp = curpg - step;
+                    }
+                }
+                
+                if (newp < 1) {
+                    if (prevcid === 0)
+                        return
+                        
+                    cid = prevcid;
+                    newp = 1
+                    page_reload = true
+                } else if (newp > nop) {
+                    if (nextcid === 0)
+                        return
+
+                    cid = nextcid;
+                    newp = 1;
+                    page_reload = true;
+                }
+                if (page_reload) {
+                    newurl = make_book_url(cid)
+                    window.location.href = newurl;
+                    return;
+                }
+                
+                twonp = newp + (step - 1)
+                console.log("newp: " + newp + " twonp: " + twonp);
+                newurl = make_page_url(cid, newp)
+                $('div.reader-overlay img.pgone').attr('src', newurl)
+                
+                $('div.reader-overlay').attr('cpage', newp)
+                $('#set_curpg').text(newp)
+                check_preload();
+                
+                if ((step === 1) || (newp === 1) || (twonp === newp) || (twonp > nop)) {
+                    $('div.reader-overlay img.pgtwo').hide();
+                    set_cookie(cid, newp)
+                } else {
+                    var newurl2 = make_page_url(cid, twonp)
+                    $('div.reader-overlay img.pgtwo').attr('src', newurl2).show()
+                    set_cookie(cid, twonp)
+                }
+                $(document).scrollTop(0)
+                window.setTimeout(apply_settings, 100)
+                e.preventDefault();
+            } else if ((e.which === 49) || (e.which === 50)) {
+                if (e.which === 49)
+                    num = 1
+                else
+                    num = 2
+                    
+                set_step(num)
+                apply_settings()
+            } else if ((e.which === 51) || (e.which === 52) || (e.which === 53)) {
+                if (e.which === 51)
+                    np = "high";
+                else if (e.which === 52)
+                    np = "norm";
+                else if (e.which === 53)
+                    np = "wide";
+                set_width(np);
+                apply_settings();
+//                $.ajax({ url: "update_pref?pref=sizepref&v=" + np});
+            } else if (e.which === 191) {
+                $('div.reader-overlay').toggle()
+                $("div.overlay-settings").toggle()
+            } else if (e.which === 81) {
+                var ind = get_last_index_page()
+                var u
+                if (ind === '') {
+                   u = "/"
+                } else {
+                   u = "/#" + ind
+                }
+                window.location.href = u
+                return;
+            }
+        });
+        $('button.close').on('click', function() {
+            $('div.reader-overlay').toggle()
+            $("div.overlay-settings").toggle() 
+        })
+        $("#size-height-button").click(function() {
+            $(".reader-overlay").html("<img class='reader-page-high' src='${now_page}'/>");
+            $.ajax({
+                url: "update_pref?pref=high"
+            });
+        });
+        $("#size-normal-button").click(function() {
+            $(".reader-overlay").html("<img class='reader-page-norm' src='${now_page}'/>");
+            $.ajax({
+                url: "update_pref?pref=norm"
+            });
+        });
+    });
+  </script>
+</html>

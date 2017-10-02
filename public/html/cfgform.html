@@ -1,0 +1,59 @@
+<form class="form-horizontal" style="margin: auto; border: 2px solid black; border-radius: 6px; width: 800px; text-align: initial;">
+<fieldset style="padding: 10px;">
+
+<!-- Form Name -->
+<legend>Gazee Configuraiton</legend>
+
+<!-- Text input-->
+<div class="form-group">
+  <label for="cpinput" class="form-control-label">Path to Comic Share</label>  
+  <input id="cpinput" name="cpinput" type="text" placeholder="Comic Path" aria-describedby="cphelp" class="form-control" required="">
+  <small id="cphelp" class="form-text text-muted">Enter the pathname of your comic book share</small>  
+</div>
+
+<div class="form-group">
+  <label for="nppinput" class="form-control-label">Covers per Page</label>  
+  <input id="nppinput" name="nppinput" type="text" aria-describedby="npphelp" class="form-control col-1" required="">
+  <small id="npphelp" class="form-text text-muted">Enter the number of cover thumbnails you want per index page.</small>  
+</div>
+
+<div class="form-group">
+  <label for="csiinput" class="form-control-label">Scan Interval (min)</label>  
+  <input id="csiinput" name="csiinput" type="text" aria-describedby="csihelp" class="form-control col-1" required="">
+  <small id="csihelp" class="form-text text-muted">Enter the number of minutes in between comic share scanning.</small>  
+</div>
+
+
+<div class="form-group">
+  <label class="control-label" for="thumbsel">Thumbnail Resolution</label>
+    <select id="thumbsel" name="thumbsel" class="form-control col-2">
+      <option value="225x300">225x300</option>
+      <option value="300x400">300x400</option>
+      <option value="375x500">375x500</option>
+    </select>
+</div>
+
+<!-- Multiple Checkboxes -->
+<div class="form-group">
+  <label class="control-label" for="postcheckboxes">Post-Processing Options</label>
+  <div class="checkbox">
+    <label for="postproc-0">
+      <input type="checkbox" name="postproc" id="postproc-0" value="1">
+      Image Edge Processing
+    </label>
+  </div>
+</div>
+
+<!-- Button -->
+<div class="form-group row">
+  <label class="col-sm-3 control-label" for="restartbutton">Control Server</label>
+  <div class="">
+    <button id="restartbutton" name="restartbutton" class="btn btn-warning">Restart</button>
+  </div>
+  <div class="">
+    <button id="eixtbutton" name="exitbutton" class="btn btn-danger">Exit</button>
+  </div>
+</div>
+<button class="btn btn-primary" type="submit">Submit</button>
+</fieldset>
+</form>

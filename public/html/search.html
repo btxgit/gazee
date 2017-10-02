@@ -1,0 +1,135 @@
+<%!
+	import gazee, os
+%>
+<!doctype html>
+<div class="whole-page">
+<html>
+<head>
+	<title>Gazee</title>
+	<meta name="description" content="Gazee Base Mako Page - Made by Hubcaps / Jessi">
+	<meta name="author" content="Hubcaps / Jessi">
+	
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css">
+  <link rel="stylesheet" type="text/css" href="static/css/style.css">
+</head>
+
+<body>
+
+  <header>
+    <ul class="dropdown-content" id="nav-dropdown">
+      <li id="dash_library"><a class="" id="dropdown-item" href="/index"><b>Dashboard</b></a></li>
+      <li id="dash_library"><a class="" id="dropdown-item" href="/library?parent=''&directory=${gazee.COMIC_PATH}&page_num=1"><b>Library</b></a></li>
+%if user_level == 'admin':
+      <li id="dash_settings"><a class="" id="dropdown-item" href="/settings"><b>Settings</b></a></li>
+%endif
+    </ul>
+    <nav>
+      <div class="nav-wrapper" id="logo-wrapper">
+        <img id="logo-image" style="margin-top: -2px; margin-left: -9px;" width="250" height="70" src="static/images/logo.png"/>
+      </div>
+    </nav>
+    <nav>
+      <div class="nav-wrapper" id="breadcrumbs">
+        <div class="row">
+          <form id="search_form" action="/search">
+            <div class="input-field col s5 right">
+              <input id="search_field" name="search_string" type="search" required>
+              <label for="search_string"><i class="material-icons">search</i></label>
+              <i class="material-icons icon-close">close</i>
+            </div>
+            <a class="dropdown-button" href='#!' data-activates='nav-dropdown' data-beloworigin="true"><i class="material-icons">reorder</i></a>
+          </form>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main id="whiteboard">
+    <div class="row">
+      <div class="col s12">
+        <div class="row">
+          <ul id="recent-header"><b><h4><center>Search Results</center></h4></b></ul>
+            <div id="recent">
+               <div class="row center-cols center-align">
+                 <ul class="pagination">
+% if current_page == 1:
+                   <li class="disabled"><a href="#!"><i class="material-icons">chevron_left</i></a></li>
+% else:
+
+<li class=""><a href="/search?page_num=${current_page - 1}&search_string=${search_string}"><i class="material-icons">chevron_left</i></a></li>
+% endif
+% if 10 > num_of_pages:
+  % for i in range(1, num_of_pages + 1):
+    % if i == current_page:
+                   <li id="pagination-num" class="active"><a href="#!">${i}</a></li>
+    % else:
+                   <li id="pagination-num" class=""><a href="/search?page_num=${i}&search_string=${search_string}">${i}</a></li>
+    % endif
+  % endfor
+% else:
+  % for i in range(1, 11):
+    % if i == current_page:
+                   <li id="pagination-num" class="active"><a href="#!">${i}</a></li>
+    % else:
+                   <li id="pagination-num" class=""><a href="/search?page_num=${i}&search_string=${search_string}">${i}</a></li>
+    % endif
+  % endfor
+% endif
+% if current_page == num_of_pages:
+<li class="disabled"><a href="#!"><i class="material-icons">chevron_right</i></a></li>
+% else:
+<li class=""><a href="/search?page_num=${current_page + 1}&search_string=${search_string}"><i class="material-icons">chevron_right</i></a></li>
+% endif
+                </ul>
+% for comic in comics:
+                  <div class="col s10 m5 l2">
+                    <div class="card">
+                      <div class="card-image hoverable">
+                        <a href="/read_comic?cid=${comic['Key']}" id="read-link"><img id="comic-image" src="${comic['ComicImage']}"></a>
+                      </div>
+                      <div class="card-content hoverable" id="comic-card-content">
+                        <p class="activator flow-text">${comic['ComicName']} ${comic['ComicIssue']}</p>
+                      </div>
+                      <div class="card-reveal" id="summary-pane">
+                        <span class="card-title">
+                          <i class="material-icons right">close</i>
+                        </span>
+                        <a href="downloadComic?comic_path=${os.path.abspath(comic['ComicPath']) | u}"><i class="material-icons">file_download</i></a>
+                        <p class="" style="font-size: 0.9em"><a href="/read_comic?cid=${comic['Key'] | u}" id="read-link">${comic['ComicSummary']}</a></p>
+                      </div>
+                    </div>
+                  </div>
+% endfor
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="page-footer" id="footer">
+    <div class="container">
+      <div class="row">
+        <div class="col s12">
+        </div>
+      </div>
+    </div>
+  </footer>
+	
+  <script type="text/javascript" src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js"></script>
+
+  <script type="text/javascript">
+      $(document).ready(function() {
+        $("#dropdown-item").click(function() {
+          window.location.href = $(this).attr('href');
+        });
+      });
+  </script>
+	
+</body>
+</html>
+</div>
