@@ -241,7 +241,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
     def reset_missing_covers(self, wid, ht):
         resetids = []
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
-            for row in con.execute('''SELECT comicid FROM all_comics;'''):
+            for row in con.execute('''SELECT comicid FROM all_comics WHERE image is not null;'''):
                 cid = row[0]
                 tp = self.get_cache_path(cid, wid, ht)
                 if not os.path.exists(tp):
