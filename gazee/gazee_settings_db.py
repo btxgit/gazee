@@ -1,3 +1,18 @@
+# .oooooooo  .oooo.     oooooooo  .ooooo.   .ooooo.
+# 888' `88b  `P  )88b   d'""7d8P  d88' `88b d88' `88b
+# 888   888   .oP"888     .d8P'   888ooo888 888ooo888
+# `88bod8P'  d8(  888   .d8P'  .P 888    .o 888    .o
+# `8oooooo.  `Y888""8o d8888888P  `Y8bod8P' `Y8bod8P'
+# d"     YD
+# "Y88888P'
+#
+# settings database class - btx
+#
+# this class started with more ambition, but at this
+# point, this class does next to nothing (really just
+# account management)
+#
+
 import sys
 import os
 import logging
@@ -10,19 +25,18 @@ from hashlib import sha256
 from gazee.db import gazee_db
 import gazee.config
 
-def get_db_name():
-    return 'gazee_settings.db'
 
 def hash_pass(password):
     return sha256(bytes(password, encoding='utf-8')).hexdigest()
 
 def get_password(username):
-    dbpath = os.path.join(gazee.config.DATA_DIR, get_db_name())
+    dbpath = os.path.join(gazee.config.DB_DIR, "gazee_settings.db")
+
     sql = '''SELECT pwhash FROM users WHERE username=?'''
     params = (username, )
 
     pw = None
-    dbapth = os.path.join(gazee.config.DATA_DIR, "gazee_settings.db")
+    dbapth = os.path.join(gazee.config.DB_DIR, "gazee_settings.db")
 
     with sqlite3.connect(dbpath) as conn:
         for row in conn.execute(sql, params):
@@ -30,19 +44,15 @@ def get_password(username):
 
     return pw
 
-def get_dbpath():
-    return os.path.join(gazee.config.DATA_DIR, get_db_name())
-
 class gazee_settings(gazee_db):
     SCHEMA_VERSION = 1
 
     def __init__(self):
-        super(gazee_settings, self).__init__()
+        self.dbpath = self.get_dbpath()
+        self.init_db()
         if not self.have_admin_account():
             self.logger.error("got error back from have_admin_account()!")
-        logging.basicConfig(level=logging.DEBUG, filename=os.path.join(gazee.config.DATA_DIR, 'gazee.log'))
-        self.logger = logging.getLogger(__name__)
-
+    
     def get_db_name(self):
         return 'gazee_settings.db'
 
@@ -80,7 +90,7 @@ class gazee_settings(gazee_db):
     def change_pass(self, username, password):
         pwhash = hash_pass(password)
 
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             sql = '''UPDATE users SET pwhash=? WHERE username=?'''
             param = (pwhash, username)
 
@@ -92,7 +102,7 @@ class gazee_settings(gazee_db):
         params = (username, )
         pw = None
 
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             for row in conn.execute(sql, params):
                 pw = row[0]
 
@@ -103,7 +113,7 @@ class gazee_settings(gazee_db):
         params = (username, )
         atype = None
 
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             for row in conn.execute(sql, params):
                 atype = row[0]
 
@@ -126,7 +136,7 @@ class gazee_settings(gazee_db):
         pwhash = hash_pass(password)
         sql = '''INSERT INTO users VALUES(?, ?, ?);'''
         arg = (username, pwhash, account_type.lower())
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             try:
                 conn.execute(sql, arg)
                 conn.commit()
@@ -137,7 +147,7 @@ class gazee_settings(gazee_db):
 
     def del_user(self, username):
         sql = '''DELETE FROM users where username COLLATE NOCASE = ?'''
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             conn.execute(sql, (username, ))
             conn.commit()
 
@@ -146,7 +156,7 @@ class gazee_settings(gazee_db):
         sql = '''SELECT account_type FROM users WHERE username=? COLLATE NOCASE AND password=?;'''
         arg = (username, pwhash)
         account_type = None
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             for row in conn.execute(sql, arg):
                 account_type = row[0]
         success = account_type is not None
@@ -157,7 +167,7 @@ class gazee_settings(gazee_db):
         sql = '''SELECT * FROM users'''
         users = []
 
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             for row in conn.execute(sql):
                 un, pw, accttype = row
                 users.append({'User': un, 'Type': accttype})
@@ -166,7 +176,7 @@ class gazee_settings(gazee_db):
 
     def num_account_type(self, account_type='admin'):
         param = (account_type, )
-        with sqlite3.connect(get_dbpath(), isolation_level='DEFERRED') as conn:
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             for row in conn.execute('''SELECT COUNT(*) FROM users WHERE account_type=?''', param):
                 return row[0]
 

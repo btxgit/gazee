@@ -11,43 +11,39 @@
 import os
 import logging
 import sqlite3
-from pathlib import Path
-
 import gazee.config
+
+log = logging.getLogger(__name__)
 
 class gazee_db(object):
     SCHEMA_VERSION = 1
 
     def __init__(self):
-        dbfn = self.get_db_name()
-        self.dbpath = os.path.join(gazee.config.DATA_DIR, dbfn)
-
-        glog = os.path.join(gazee.config.DATA_DIR, 'gazee.log')
-        logging.basicConfig(level=logging.DEBUG,
-                            filename=glog)
-        self.logger = logging.getLogger(__name__)
-
-        self.logger.debug("Using db path: %s", self.dbpath)
-
-        if os.path.exists(self.dbpath) and os.path.getsize(self.dbpath) < (8 * 1024):
+        pass
+    
+    def init_db(self):
+        if os.path.exists(self.dbpath) and os.path.getsize(self.dbpath) < (4 * 1024):
             os.unlink(self.dbpath)
 
         if not os.path.exists(self.dbpath):
-            self.logger.info("Creating new database: %s", self.dbpath)
+            log.info("Creating new database: %s", self.dbpath)
             self.create_db()
 
         self.check_migrate_db()
         self.c = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
 
     def get_db_name(self):
-        self.logger.error("Calling base gazee_db.get_db_name() method!")
+        raise Exception('Called get_db_name() on the base class!')
+
+    def get_dbpath(self):
+        return os.path.join(gazee.config.DB_DIR, self.get_db_name())
 
     def create_db(self):
-        self.logger.error("Calling base gazee_db.get_db_name() method!")
+        log.error("Calling base gazee_db.get_db_name() method!")
         return
 
     def check_migrate_db(self):
-        self.logger.warn("Called check_migrate_db() on base method!")
+        log.warn("Called check_migrate_db() on base method!")
         return
 
     def get_schema_version(self):

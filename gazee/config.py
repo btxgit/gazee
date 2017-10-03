@@ -12,14 +12,19 @@
 import sys
 import os
 import configparser
+import logging
+
+log = logging.getLogger(__name__)
+
 
 class gcfg(object):
     datapath = None
     cfgpath = None
-    defaults = {'data_dir': 'data',
+    defaults = {'bind_address': '127.0.0.1',
                 'port': '4242',
+                'data_dir': '~/.gazee',
+                'temp_dir': '',
                 'comic_path': '',
-                'temp_path': '',
                 'comic_scan_interval': '60',
                 'comics_per_page': '15',
                 'thumb_maxwidth': '300',
@@ -33,19 +38,42 @@ class gcfg(object):
 
     def __init__(self):
         self.cfg = configparser.ConfigParser()
-
-        if not self.find_config():
-            print("Failed to find_config()")
-            sys.exit(1)
+        self.datapath = None
+        self.logpath = None
+        self.dbpath = None
+        self.sessionspath = None
 
         self.configRead()
-        print("Initialized configation... in %s" % __name__)
+        log.debug("Initialized configation... in %s", __name__)
+
+    def create_init_dirs(self,  data_dir):
+        ''' Sets up the data_dir plus the two paths that aren't
+        configurable, and are relative to the data_dir - the
+        log_dir and db_dir
+        '''
+        self.datapath = data_dir
+        self.logpath = os.path.join(self.datapath, "logs")
+        self.dbpath = os.path.join(self.datapath, "db")
+        self.sessionspath = os.path.join(self.datapath, "sessions")
+
+        if not os.path.exists(self.logpath):
+            os.makedirs(self.logpath, 0o700)
+
+        if not os.path.exists(self.dbpath):
+            os.makedirs(self.dbpath, 0o700)
+
+        if not os.path.exists(self.sessionspath):
+            os.makedirs(self.sessionspath, 0o700)
 
     def find_config(self):
+        ''' Looks for where the data dir is located.
+        Once it finds the dir, it calls create_
+        '''
         dirfound = None
         firstdir = None
         cfgfound = None
-        dirs = ['data', '../data', '~/.gazee']
+
+        dirs = ['data', '~/.gazee', '../data']
         for d in dirs:
             ddir = os.path.realpath(os.path.expanduser(d))
             cfile = os.path.join(ddir, "app.ini")
@@ -60,35 +88,43 @@ class gcfg(object):
                     break
 
         if dirfound is None:
-            print("Data directory not found!")
+            log.error("Data directory not found!")
             return False
 
         dirfound = firstdir
         self.datapath = dirfound
+        self.create_init_dirs(dirfound)
 
         if cfgfound is not None:
-            print('cfgfound=%s' % cfgfound)
+            log.debug('cfgfound=%s', cfgfound)
             self.cfgpath = cfgfound
         else:
             cfile = os.path.join(self.datapath, 'app.ini')
             self.cfg['GLOBAL'] = {}
             self.cfg['DEFAULT'] = self.defaults
-            self.cfg.set('default', 'data_dir', self.datapath)
+            self.cfg.set('DEFAULT', 'data_dir', self.datapath)
+
             cfgfound = cfile
             self.cfgpath = cfgfound
             self.configWrite()
-
             self.cfg.set('GLOBAL', 'data_dir', self.datapath)
+            self.cfg.set('GLOBAL', 'log_dir', self.logpath)
+            self.cfg.set('GLOBAL', 'db_dir', self.dbpath)
+            self.cfg.set('GLOBAL', 'sessions_dir', self.sessionspath)
         return True
 
     def configWrite(self):
+        ''' Write self.cfg to disk
+        '''
         with open(self.cfgpath, 'w') as configfile:
             self.cfg.write(configfile)
         return True
 
     def globalize(self):
+        ''' Place the cfg variables into the self.config
+        scope
+        '''
         mod = sys.modules[__name__]
-
         for vn in self.cfg['GLOBAL']:
             vn = vn.upper()
             v = self.cfg.get('GLOBAL', vn)
@@ -100,24 +136,88 @@ class gcfg(object):
                 v = int(v, 10)
 
             setattr(mod, vn, v)
+    def get_yn(self, msg):
+        while True:
+            v = input(msg)
+            if v.lower() in ['y', 'n']:
+                break
+
+            print("\nInvalid response.  Enter 'y' or 'n'.")
+
+        return v.lower() == 'y'
+
+    def get_path(self, name):
+        p = None
+        while True:
+            prompt = 'Please enter %s: ' % name
+            p = input(prompt)
+
+            if not os.path.exists(p):
+                msg = 'Path %s does not exist.\n\nDo you wish to create it? [y/n]: ' % p
+                if self.get_yn(msg):
+                    try:
+                        os.makedirs(p)
+                    except PermissionError:
+                        print("You don't have the permissions to create that path.\n")
+                        continue
+                else:
+                    continue
+            break
+        return p
 
     def configRead(self):
+        ''' Read the app.ini config file.
+        '''
+        dp = self.find_config()
+
+        if dp is None:
+            log.error("Failed to find_config()")
+            sys.exit(1)
+
+        self.cfgpath = os.path.join(self.datapath, 'app.ini')
         self.cfg.read(self.cfgpath)
         if 'GLOBAL' not in self.cfg:
-            print("Resetting GLOBAL cfg...")
+            log.info("Resetting GLOBAL cfg...")
             self.cfg['GLOBAL'] = {}
+
+#        log.debug('datapath:%s', str(self.datapath))
+#        print('datapath: %s' % str(self.datapath))
+#        print('logpath: %s' % str(self.logpath))
+#        print('ddbpath: %s' % str(self.dbpath))
+#        print('sessionsbpath: %s' % str(self.sessionspath))
         self.cfg.set('GLOBAL', 'data_dir', self.datapath)
+        self.cfg.set('GLOBAL', 'log_dir', self.logpath)
+        self.cfg.set('GLOBAL', 'db_dir', self.dbpath)
+        self.cfg.set('GLOBAL', 'sessions_dir', self.sessionspath)
+
+        if 'comic_path' not in self.cfg['GLOBAL'] or self.cfg.get('GLOBAL', 'comic_path') is None:
+            cpath = self.get_path("your comic share's path")
+            if cpath is not None:
+                self.cfg.set('GLOBAL', 'comic_path', cpath)
+
+        if 'temp_dir' not in self.cfg['GLOBAL'] or self.cfg.get('GLOBAL', 'temp_dir') is None:
+            tdir = self.get_path('a directory for temporary (large) file storage')
+            if tdir is not None:
+                self.cfg.set('GLOBAL', 'temp_dir', tdir)
+
         self.globalize()
+        
         return True
 
     def updateCfg(self, newvals):
-        print(newvals)
+        ''' Update the self.cfg with newvals, which should be
+        a dict in the form {'GLOBAL': {'varname': 'varval'}}
+        '''
+
+        log.debug(newvals)
         for k in newvals['GLOBAL'].keys():
             if not isinstance(newvals['GLOBAL'][k], str):
                 if newvals['GLOBAL'][k] is None:
                     newvals['GLOBAL'][k] = ''
                 else:
-                    print("newvals['GLOBAL'][%s] is type %s" % (k, str(type(newvals['GLOBAL'][k]))))
+                    log.debug("newvals['GLOBAL'][%s] is type %s",
+                              k, str(type(newvals['GLOBAL'][k])))
+
             self.cfg.set('GLOBAL', k, newvals['GLOBAL'][k])
         self.configWrite()
         self.globalize()

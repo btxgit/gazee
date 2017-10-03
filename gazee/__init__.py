@@ -13,11 +13,11 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Gazee.  If not, see <http://www.gnu.org/licenses/>.
 
-__version__ = '0.0.2'
+__version__ = '0.0.7'
 
 from gazee.config import gcfg
 from gazee.gazee_settings_db import gazee_settings
-from gazee.gazeemod import Gazeesrv, ScanDirs
+from gazee.gazeemod import Gazeesrv
 from gazee.archive import extract_archive, extract_thumb, extract_all_images
 from gazee.versioning import current_version, latest_version
 from gazee.dbscan import ScanDirs

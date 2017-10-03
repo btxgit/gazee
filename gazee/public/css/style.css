@@ -150,7 +150,7 @@ div.ubooksummary { font-size: 7pt; color: #d2d2d2; padding-bottom: 5px; padding-
 
 div.reader-whole { text-align: center; }
 
-div.reader-overlay { display: inline-flex; }
+div.reader-overlay { display: block; width: 100%; object-fit: contain; }
 
 img.reader-page-wide { width: 100%; }
 
@@ -161,3 +161,6 @@ img.reader-page-high { height: 1600px; }
 span.uline i { font-size: 10pt; width: 20px; cursor: pointer; color: #e0e0e0; }
 
 span.uline i:hover { color: #f0f000; }
+
+img.pgone { margin-right: -2px; }
+img.pgtwo { margin-left: -2px; }

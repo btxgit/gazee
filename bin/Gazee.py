@@ -6,7 +6,8 @@
 #  (at your option) any later version.
 #
 #  Gazee is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
 #
 #  You should have received a copy of the GNU General Public License
@@ -17,24 +18,45 @@ import sys
 import threading
 import argparse
 import logging
-
+import logging.handlers
 import cherrypy
 from cherrypy.process.plugins import Daemonizer, PIDFile
 
 import gazee
-#from gazee.config import gcfg
-#from gazee.gazeemod import Gazeesrv
 
-MAIN_COLOR=""
 
+MAIN_COLOR = ""
+ARGS=[]
+gcfg = gazee.gcfg()
+
+
+def init_root_logger(log_path):
+#    logging.basicConfig(format='[%(asctime)s][%(name)s:%(levelname)s] %(message)s',
+#                        datefmt='%Y-%m-%d %H:%M:%S', level=logging.DEBUG)
+    elog = logging.getLogger()
+
+    if not os.path.exists(log_path):
+        fd = open(log_path, "w")
+        fd.close()
+
+    handler = logging.handlers.RotatingFileHandler(filename=log_path,
+                                                   maxBytes=(1024 * 1024),
+                                                   backupCount=5)
+
+    formatter = logging.Formatter('[%(asctime)s][%(name)s:%(levelname)s] %(message)s')
+    handler.setFormatter(formatter)
+    elog.addHandler(handler)
+    elog.setLevel(logging.WARN)
+    log = logging.getLogger(__name__)
+    return log
+
+
+log_path = os.path.join(gazee.config.LOG_DIR, "gazee.log")
+log = init_root_logger(log_path)
 
 def daemonize():
-
-    logging.basicConfig(level=logging.DEBUG, filename=os.path.join(DATA_DIR, 'gazee.log'))
-    logger = logging.getLogger(__name__)
-
     if threading.activeCount() != 1:
-        logger.warn('There are %r active threads. Daemonizing may cause \
+        log.warn('There are %r active threads. Daemonizing may cause \
                         strange behavior.' % threading.enumerate())
 
     sys.stdout.flush()
@@ -47,7 +69,7 @@ def daemonize():
             pass
         else:
             # Exit the parent process
-            logger.debug('Forking once...')
+            log.debug('Forking once...')
             os._exit(0)
     except OSError as e:
         sys.exit("1st fork failed: %s [%d]" % (e.strerror, e.errno))
@@ -62,7 +84,7 @@ def daemonize():
     try:
         pid = os.fork()
         if pid > 0:
-            logger.debug('Forking twice...')
+            log.debug('Forking twice...')
             os._exit(0)  # Exit second parent process
     except OSError as e:
         sys.exit("2nd fork failed: %s [%d]" % (e.strerror, e.errno))
@@ -79,73 +101,56 @@ def daemonize():
     os.dup2(se.fileno(), sys.stderr.fileno())
 
     pid = os.getpid()
-    logger.info('Daemonized to PID: %s' % pid)
-    logger.info("Writing PID %d to %s", pid, PIDFILE)
-    with open(PIDFILE, 'w') as fp:
+    log.info('Daemonized to PID: %s' % pid)
+    log.info("Writing PID %d to %s", pid, PIDFile)
+    with open(PIDFile, 'w') as fp:
         fp.write("%s\n" % pid)
 
 
 def main():
-
     parser = argparse.ArgumentParser(description='Gazee - Open Comic Book Reader')
 
     parser.add_argument('-d', '--daemon', action='store_true', help='Run as a daemon')
     parser.add_argument('-c', '--datadir', help='Set data directory')
-
+    parser.add_argument('-v', dest="verbosity", action="count", default=0, help="Every time this flag appears on the cmdline, the verbosity increases.")
+    parser.add_argument('--pidfile', type=str, default="/var/run/gazee.pid", help="Specify the PID file to use when daemonizing")
+    
     args = parser.parse_args()
-
-    if args.datadir:
-        DATA_DIR = args.datadir
-        TEMP_DIR = os.path.join(DATA_DIR, 'tmp')
-
-        if not os.path.exists(DATA_DIR):
-            os.makedirs(os.path.abspath(DATA_DIR))
-
-    else:
-        DATA_DIR = os.path.realpath('./data')
-
-    if os.path.exists(DATA_DIR):
-        TEMP_DIR = os.path.join(DATA_DIR, "tmp")
-        if not os.path.exists(os.path.join(DATA_DIR, 'sessions')):
-            os.makedirs(os.path.abspath(os.path.join(DATA_DIR, 'sessions')))
-
-        if not os.path.exists(TEMP_DIR):
-            os.makedirs(os.path.abspath(TEMP_DIR))
     
-    gazee.LOG_DIR=os.path.realpath(DATA_DIR)
-    
-    logging.basicConfig(level=logging.DEBUG, filename=os.path.join(gazee.LOG_DIR, 'gazee.log'))
-    logger = logging.getLogger(__name__)
-
+    if (args.verbosity == 1):
+        log.setLevel(logging.INFO)
+    elif (args.verbosity > 1):
+        log.setLevel(logging.DEBUG)
+        
     if args.daemon:
         if sys.platform == 'win32':
-            logger.info("Daemonize not supported under Windows, starting normally")
+            log.info("Daemonize not supported under Windows.")
         else:
-            # If the pidfile already exists, Gazee may still be running, so exit
-            if os.path.exists(PIDFILE):
-                sys.exit("PID file '" + PIDFILE + "' already exists. Exiting.")
+            # If the pidfile already exists, Gazee may still
+            # be running, so exit
+            if os.path.exists(args.pidfile):
+                log.error("PIDFile: %s already exists.  Exiting.", args.pidfile)
+                sys.exit(1)
+            else:
+                cherrypy.config.update({'log.screen': False})
+                Daemonizer(cherrypy.engine).subscribe()
+            PIDFile(cherrypy.engine, args.pidfile).subscribe()
 
             # The pidfile is only useful in daemon mode, make sure we can write the file properly
             try:
-                PIDFile(cherrypy.engine, PIDFILE).subscribe()
+                PIDFile(cherrypy.engine, PIDFile).subscribe()
             except IOError as e:
                 raise SystemExit("Unable to write PID file: %s [%d]" % (e.strerror, e.errno))
-            if DATA_DIR is not 'data':
-                ARGS += ["-c", DATA_DIR]
+            
+            ARGS=sys.argv
+            if gazee.config.DATA_DIR is not 'data':
+                ARGS += ["-c", gazee.config.DATA_DIR]
             ARGS += ["-d"]
             Daemonizer(cherrypy.engine).subscribe()
+    
+    pubdir = os.path.realpath(gazee.__file__ + "/../public")
 
-    if os.path.exists('public/css/style.css'):
-        with open('public/css/style.css') as f:
-            style = f.read()
-
-        with open('public/css/style.css', "w") as f:
-            style = style.replace("757575", gazee.config.MAIN_COLOR)
-            style = style.replace("BDBDBD", gazee.config.ACCENT_COLOR)
-            style = style.replace("FFFFFF", gazee.config.WEB_TEXT_COLOR)
-            f.write(style)
-
-    if DATA_DIR is not 'data':
+    if gazee.config.DATA_DIR is not 'data':
         conf = {
             '/': {
                 'tools.gzip.on': True,
@@ -154,7 +159,7 @@ def main():
                 'tools.sessions.on': True,
                 'tools.sessions.timeout': 1440,
                 'tools.sessions.storage_class': cherrypy.lib.sessions.FileSession,
-                'tools.sessions.storage_path': os.path.join(DATA_DIR, "sessions"),
+                'tools.sessions.storage_path': gazee.config.SESSIONS_DIR,
                 'tools.basic_auth.on': True,
                 'tools.basic_auth.realm': 'Gazee',
                 'tools.basic_auth.users': gazee.gazee_settings_db.get_password,
@@ -164,19 +169,11 @@ def main():
             '/static': {
                 'tools.staticdir.on': True,
                 'tools.staticdir.root': os.path.abspath(os.getcwd()),
-                'tools.staticdir.dir': "public"
-            },
-            '/data': {
-                'tools.staticdir.on': True,
-                'tools.staticdir.dir': DATA_DIR
-            },
-            '/tmp': {
-                'tools.staticdir.on': True,
-                'tools.staticdir.dir': TEMP_DIR
+                'tools.staticdir.dir': pubdir
             },
             '/favicon.ico': {
                 'tools.staticfile.on': True,
-                'tools.staticfile.filename': os.path.join(os.getcwd(), "public/images/favicon.ico")
+                'tools.staticfile.filename': os.path.join(pubdir, "images/favicon.ico")
             }
         }
     else:
@@ -188,7 +185,7 @@ def main():
                 'tools.sessions.on': True,
                 'tools.sessions.timeout': 1440,
                 'tools.sessions.storage_class': cherrypy.lib.sessions.FileSession,
-                'tools.sessions.storage_path': os.path.join(DATA_DIR, "sessions"),
+                'tools.sessions.storage_path': gazee.config.SESSIONS_DIR,
                 'tools.basic_auth.on': True,
                 'tools.basic_auth.realm': 'Gazee',
                 'tools.basic_auth.users': gazee.gazee_settings_db.get_password,
@@ -197,26 +194,18 @@ def main():
             },
             '/static': {
                 'tools.staticdir.on': True,
-                'tools.staticdir.dir': "public"
-            },
-            '/data': {
-                'tools.staticdir.on': True,
-                'tools.staticdir.dir': DATA_DIR
-            },
-            '/tmp': {
-                'tools.staticdir.on': True,
-                'tools.staticdir.dir': TEMP_DIR
+                'tools.staticdir.dir': pubdir
             },
             '/favicon.ico': {
                 'tools.staticfile.on': True,
-                'tools.staticfile.filename': os.path.join(os.getcwd(), "public/images/favicon.ico")
+                'tools.staticfile.filename': os.path.join(pubdir, "images/favicon.ico")
             }
         }
 
     if (gazee.config.SSL_KEY == '') and (gazee.config.SSL_CERT == ''):
         options_dict = {
             'server.socket_port': gazee.config.PORT,
-            'server.socket_host': '0.0.0.0',
+            'server.socket_host': gazee.config.BIND_ADDRESS,
             'server.thread_pool': 30,
             'log.screen': False,
             'engine.autoreload.on': False,
@@ -224,7 +213,7 @@ def main():
     else:
         options_dict = {
             'server.socket_port': gazee.config.PORT,
-            'server.socket_host': '0.0.0.0',
+            'server.socket_host': gazee.config.BIND_ADDRESS,
             'server.thread_pool': 30,
             'server.ssl_module': 'builtin',
             'server.ssl_certificate': gazee.config.SSL_CERT,
@@ -238,26 +227,24 @@ def main():
     cherrypy.engine.timeout_monitor.on = False
     cherrypy.tree.mount(gazee.Gazeesrv(), '/', config=conf)
 
-    logging.info("Gazee Started")
+    log.info("Gazee Started")
 
     cherrypy.engine.start()
     cherrypy.engine.block()
 
     if (os.path.exists(os.path.join(gazee.config.DATA_DIR, 'db.lock'))):
-        os.remove(DATA_DIR, 'db.lock')
+        os.remove(gazee.config.DATA_DIR, 'db.lock')
     return
 
 
 if __name__ == '__main__':
-    gcfg = gazee.gcfg()
-    gcfg.configRead()
     gazee.config.FULL_PATH = os.path.dirname(os.path.realpath(__file__))
     os.chdir(gazee.config.FULL_PATH)
     gazee.config.DATA_DIR = os.path.join(gazee.config.FULL_PATH, "data")
-    print("COMIC_PATH=%s" % gazee.config.COMIC_PATH)
-    gazee.ScanDirs(cherrypy.engine, interval=300, comic_path=gazee.config.COMIC_PATH, temp_path=gazee.config.TEMP_PATH).subscribe()
-    
-    if (sys.platform == 'win32' and sys.executable.split('\\')[-1] == 'pythonw.exe'):
+    gazee.ScanDirs(cherrypy.engine, interval=300, comic_path=gazee.config.COMIC_PATH, temp_path=gazee.config.TEMP_DIR).subscribe()
+
+    if (sys.platform == 'win32' and
+            sys.executable.split('\\')[-1] == 'pythonw.exe'):
         sys.stdout = open(os.devnull, "w")
         sys.stderr = open(os.devnull, "w")
     main()

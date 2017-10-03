@@ -76,16 +76,16 @@ This likely means your systems default version of python is 2.x. Verify you have
 
 **Step 2: Logon to Gazee's Web UI**)
 
-  Go to **http://your-ip:4242**
+  Go to **http://localhost:4242**
   
   Default username and password for the web interface:
-  
-  * **Username:** `admin`
-  * **Password:** `gazee`
+
+It will prompt you for a username / pw if you start the program without an
+admin user created.  Default accounts are generallya a bad idea.
   
   Proceed to the settings page and change your admin pass, and enter the path to your comic library   and optionally your Mylar DB for better comic info extraction.
 
-### Daemonize (Linux only)
+### Daemonize (Linux & OSX only)
 
 You can easily run the program in Daemon mode by using the -d flag
 
@@ -103,6 +103,6 @@ These are features that will make Gazee better and more up to par in what should
 
 - [ ] Random First Issue of a series in library.
 - [ ] OPDS Support.
-- [ ] User set image sizes.
+- [ ] User set image sizes. (implemented in this branch)
 - [ ] Notifications on new comics
 - [ ] Reports on various stats of your library; number of bad archives, comics without metadata, etc etc

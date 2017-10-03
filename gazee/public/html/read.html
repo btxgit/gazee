@@ -11,7 +11,7 @@
     <div class="col s12 overlay-settings" style="display: none;">
     <%include file="readhelp.html" />
     </div>
-    <div class="reader-overlay" cid="${cid}" nop="${nop}" prevcid="${prevcid}" nextcid="${nextcid}" cpage="${current_page}" step="${dblpage}">
+    <div class="reader-overlay" cid="${cid}" nop="${nop}" prevcid="${prevcid}" nextcid="${nextcid}" cpage="${current_page}" step="1">
       <img class="pgone" src="${now_page}"/>
       <img class="pgtwo" style="display: none;" src=""/>
     </div>
@@ -134,11 +134,20 @@
     function set_step(step) {
        window.localStorage.setItem('gazee-step', '' + step)
     }
+
+    function set_latest_page(cid, pg) {
+       var name = "bk-" + cid
+       window.localStorage.setItem('name', '' + pg)
+    }
     
-    function set_cookie(cid, pg) {
-        var cookie_comic = "comicbook" + cid;
-        document.cookie = cookie_comic + "=" + pg + ";path='/';max-age=2419200"
-        console.log(">>>> Last page for cid=" + cid + " is: " + pg)
+    function get_latest_page(cid) {
+       var v = window.localStorage.getItem('bk-' + cid)
+       if (v === null) {
+           return 1
+       } else {
+           var vi = parseInt(v, 10)
+           return vi
+       }
     }
     
     function apply_settings() {
@@ -195,13 +204,13 @@
             var curwid = $('div.reader-overlay').width()
 
             console.log("max: " + maxwid + " cur: " + curwid)
-
+/*
             if (curwid > maxwid) {
                 $('div.reader-overlay img').css('width', '50%')
             } else {
                 $('div.reader-overlay img').css('width', '')
             }
-            
+*/            
         }
         
     }
@@ -229,7 +238,7 @@
         apply_settings()
 
         var curpg = parseInt($('div.reader-overlay').attr('cpage'), 10)
-        set_cookie(cid, curpg)
+        set_latest_page(cid, curpg)
 
         $(document).on("keydown", function(e) {
             tmpev = e
@@ -239,7 +248,6 @@
             var step = parseInt($('div.reader-overlay').attr('step'), 10)
             var prevcid = parseInt($('div.reader-overlay').attr('prevcid'), 10)
             var nextcid = parseInt($('div.reader-overlay').attr('nextcid'), 10)
-            var cookie_comic = "comicbook" + cid;
 
             console.debug("cid: " + cid + " nop: " + nop + " curpg: " + curpg);
 
@@ -317,11 +325,11 @@
                 
                 if ((step === 1) || (newp === 1) || (twonp === newp) || (twonp > nop)) {
                     $('div.reader-overlay img.pgtwo').hide();
-                    set_cookie(cid, newp)
+                    set_latest_page(cid, newp)
                 } else {
                     var newurl2 = make_page_url(cid, twonp)
                     $('div.reader-overlay img.pgtwo').attr('src', newurl2).show()
-                    set_cookie(cid, twonp)
+                    set_latest_page(cid, twonp)
                 }
                 $(document).scrollTop(0)
                 window.setTimeout(apply_settings, 100)
