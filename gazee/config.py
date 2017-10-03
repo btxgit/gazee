@@ -36,13 +36,17 @@ class gcfg(object):
                 'main_color': '757575',
                 'accent_color': 'bdbdbd'}
 
-    def __init__(self):
+    def __init__(self, data_override=None):
         self.cfg = configparser.ConfigParser()
-        self.datapath = None
+        self.datapath = data_override
         self.logpath = None
         self.dbpath = None
         self.sessionspath = None
-
+        
+        if self.datapath is not None:
+            self.datapath = os.path.realpath(os.path.expanduser(self.datapath))
+        if self.datapath is None and data_override is not None:
+            log.error("Somehow the datapath is now None.")
         self.configRead()
         log.debug("Initialized configation... in %s", __name__)
 
@@ -51,6 +55,10 @@ class gcfg(object):
         configurable, and are relative to the data_dir - the
         log_dir and db_dir
         '''
+        
+        if self.datapath is not None and data_dir is None:
+            log.error("data_dir is None while datapath is not.")
+            
         self.datapath = data_dir
         self.logpath = os.path.join(self.datapath, "logs")
         self.dbpath = os.path.join(self.datapath, "db")
@@ -72,20 +80,42 @@ class gcfg(object):
         dirfound = None
         firstdir = None
         cfgfound = None
+        
+        print("Looking for config in find_config() - datapath: %s" % (self.datapath))
+        
+        if self.datapath is not None:
+            if not os.path.exists(self.datapath):
+                msg = 'Path %s does not exist.\n\nDo you wish to create it? [y/n]: ' % self.datapath
+                if self.get_yn(msg):
+                    try:
+                        os.makedirs(self.datapath)
+                    except PermissionError:
+                        print("You don't have the permissions to create that path.\nExiting.")
+                        sys.exit(1)
+                else:
+                    print("Exiting.")
+                    sys.exit(1)
+            firstdir = dirfound = self.datapath
 
-        dirs = ['data', '~/.gazee', '../data']
-        for d in dirs:
-            ddir = os.path.realpath(os.path.expanduser(d))
-            cfile = os.path.join(ddir, "app.ini")
+            cfile = os.path.join(dirfound, "app.ini")
+            if os.path.exists(cfile):
+                cfgfound = cfile
+            else:
+                cfgfound = None
+        else:
+            dirs = ['data', '~/.gazee', '../data']
+            for d in dirs:
+                ddir = os.path.realpath(os.path.expanduser(d))
+                cfile = os.path.join(ddir, "app.ini")
 
-            if os.path.exists(ddir) and os.path.isdir(ddir):
-                if firstdir is None:
-                    firstdir = ddir
+                if os.path.exists(ddir) and os.path.isdir(ddir):
+                    if firstdir is None:
+                        firstdir = ddir
 
-                dirfound = ddir
-                if os.path.exists(cfile):
-                    cfgfound = cfile
-                    break
+                    dirfound = ddir
+                    if os.path.exists(cfile):
+                        cfgfound = cfile
+                        break
 
         if dirfound is None:
             log.error("Data directory not found!")
@@ -170,7 +200,7 @@ class gcfg(object):
         '''
         dp = self.find_config()
 
-        if dp is None:
+        if dp is None or self.datapath is None:
             log.error("Failed to find_config()")
             sys.exit(1)
 
