@@ -27,7 +27,6 @@ import gazee
 
 MAIN_COLOR = ""
 ARGS=[]
-gcfg = gazee.gcfg()
 
 
 def init_root_logger(log_path):
@@ -51,8 +50,7 @@ def init_root_logger(log_path):
     return log
 
 
-log_path = os.path.join(gazee.config.LOG_DIR, "gazee.log")
-log = init_root_logger(log_path)
+log = None
 
 def daemonize():
     if threading.activeCount() != 1:
@@ -108,10 +106,11 @@ def daemonize():
 
 
 def main():
+    global log
     parser = argparse.ArgumentParser(description='Gazee - Open Comic Book Reader')
 
     parser.add_argument('-d', '--daemon', action='store_true', help='Run as a daemon')
-    parser.add_argument('-c', '--datadir', help='Set data directory')
+    parser.add_argument('-c', '--datadir', default="~/.gazee/", type=str, help='Set data directory')
     parser.add_argument('-v', dest="verbosity", action="count", default=0, help="Every time this flag appears on the cmdline, the verbosity increases.")
     parser.add_argument('--pidfile', type=str, default="/var/run/gazee.pid", help="Specify the PID file to use when daemonizing")
     
@@ -121,7 +120,12 @@ def main():
         log.setLevel(logging.INFO)
     elif (args.verbosity > 1):
         log.setLevel(logging.DEBUG)
-        
+    
+    gcfg = gazee.gcfg(args.datadir)
+    log_path = os.path.join(gazee.config.LOG_DIR, "gazee.log")
+    log = init_root_logger(log_path)
+    gazee.ScanDirs(cherrypy.engine, interval=300, comic_path=gazee.config.COMIC_PATH, temp_path=gazee.config.TEMP_DIR).subscribe()
+
     if args.daemon:
         if sys.platform == 'win32':
             log.info("Daemonize not supported under Windows.")
@@ -143,9 +147,6 @@ def main():
                 raise SystemExit("Unable to write PID file: %s [%d]" % (e.strerror, e.errno))
             
             ARGS=sys.argv
-            if gazee.config.DATA_DIR is not 'data':
-                ARGS += ["-c", gazee.config.DATA_DIR]
-            ARGS += ["-d"]
             Daemonizer(cherrypy.engine).subscribe()
     
     pubdir = os.path.realpath(gazee.__file__ + "/../public")
@@ -238,11 +239,6 @@ def main():
 
 
 if __name__ == '__main__':
-    gazee.config.FULL_PATH = os.path.dirname(os.path.realpath(__file__))
-    os.chdir(gazee.config.FULL_PATH)
-    gazee.config.DATA_DIR = os.path.join(gazee.config.FULL_PATH, "data")
-    gazee.ScanDirs(cherrypy.engine, interval=300, comic_path=gazee.config.COMIC_PATH, temp_path=gazee.config.TEMP_DIR).subscribe()
-
     if (sys.platform == 'win32' and
             sys.executable.split('\\')[-1] == 'pythonw.exe'):
         sys.stdout = open(os.devnull, "w")
