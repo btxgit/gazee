@@ -286,8 +286,10 @@ class FileNameParser:
             grab_end = max(issue_end, year_end)
             self.remainder = self.getRemainder(filename, self.year,
                                                self.issue_count, grab_end)
-        if ('(digital)' in filename.lower()) and ('(digital)' not in self.remainder.lower()):
-            self.remainder = '{0} (digital)'.format(self.remainder)
+            if filename is not None and self.remainder is not None:
+                if ('(digital)' in filename.lower()) and ('(digital)' not in self.remainder.lower()):
+                    self.remainder = '{0} (digital)'.format(self.remainder)
+                
         if self.publisher is not None:
             if self.series is not None and self.publisher.lower().strip().endswith(' vol'):
                 self.series = self.series[:-4]
