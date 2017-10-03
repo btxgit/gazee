@@ -25,6 +25,8 @@ from hashlib import sha256
 from gazee.db import gazee_db
 import gazee.config
 
+log = logging.getLogger(__name__)
+
 
 def hash_pass(password):
     return sha256(bytes(password, encoding='utf-8')).hexdigest()
@@ -51,7 +53,7 @@ class gazee_settings(gazee_db):
         self.dbpath = self.get_dbpath()
         self.init_db()
         if not self.have_admin_account():
-            self.logger.error("got error back from have_admin_account()!")
+            log.error("got error back from have_admin_account()!")
     
     def get_db_name(self):
         return 'gazee_settings.db'
@@ -61,7 +63,7 @@ class gazee_settings(gazee_db):
             CREATE TABLE IF NOT EXISTS users(username TEXT NOT NULL, pwhash TEXT NOT NULL, account_type TEXT NOT NULL);
             CREATE UNIQUE INDEX IF NOT EXISTS unidx ON users (username COLLATE NOCASE);
         '''
-        self.logger.debug("Executing creation of SQL database: %s with SQL: %s", self.dbpath, sql)
+        log.debug("Executing creation of SQL database: %s with SQL: %s", self.dbpath, sql)
         conn = sqlite3.connect(self.dbpath)
         conn.executescript(sql)
         conn.commit()
@@ -195,7 +197,7 @@ class gazee_settings(gazee_db):
 
         rv = self.add_user(un, pw, account_type)
         if (not rv[0]):
-            self.logger.error("Got error from add_user: %s", rv[1])
+            log.error("Got error from add_user: %s", rv[1])
             return False
 
         return True
@@ -204,14 +206,14 @@ class gazee_settings(gazee_db):
         if self.num_account_type(account_type='admin') > 0:
             return True
 
-        self.logger.warn("Gazee has no admin account_type account created.  Going to try to create one.")
+        log.warn("Gazee has no admin account_type account created.  Going to try to create one.")
 
         if not os.isatty(sys.stdout.fileno()):
-            self.logger.warn("Unable to ask for the admin user\'s account credentials because the script is being started in a term with notty.")
+            log.warn("Unable to ask for the admin user\'s account credentials because the script is being started in a term with notty.")
             return False
 
         if not self.prompt_account_details(account_type='admin'):
-            self.logger.error("Failed to run prompt_account_details.")
+            log.error("Failed to run prompt_account_details.")
             return False
 
 if __name__ == '__main__':
