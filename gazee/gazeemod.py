@@ -32,50 +32,47 @@ from gazee.gazee_settings_db import gazee_settings
 log = logging.getLogger(__name__)
 
 
-def serve_template(templatename, **kwargs):
-    """
-    This initializes our mako template serving directory and allows
-    us to return it's compiled embeded html pages rather than the
-    default return of a static html page.
-    """
-
-    pubdir = os.path.realpath(gazee.__file__ + "/../public")
-    html_dir = os.path.join(pubdir, 'html')
-    _hplookup = TemplateLookup(directories=[html_dir])
-    try:
-        tpath = os.path.join(html_dir, templatename)
-        if not os.path.exists(tpath):
-            log.error("Unable to locate the template file: %s", tpath)
-            
-        template = _hplookup.get_template(templatename)
-        return template.render(**kwargs)
-    except:
-        return exceptions.html_error_template().render()
-
-
 class Gazeesrv(object):
     def __init__(self):
         """ Initialize the class, kick off a rescan thread.
         """
         self.cdb = comic_db()
         self.gset = gazee_settings()
-        self.gcfg = gazee.gcfg()
+        self.gcfg = gazee.gcfg(gazee.config.DATA_DIR)
         self.bus = cherrypy.engine
         self._scan_time = None
         self._pending = None
         self._numrecs = None
         self._pct = None
-        self.bus.subscribe('db-scan-time-put', self._get_scan_time)
+        self.root_dir = os.path.realpath(os.path.dirname(gazee.__file__))
+        self.templates_dir = os.path.join(self.root_dir, "templates")
 
-    def _get_scan_time(self, arg):
-        self._scan_time, self._pending, self._numrecs, self._pct = arg
-        log.debug("Got scan time of: %s" % self._scan_time)
-        log.debug("Pending: %d  nrec: %d   pct: %.2f%%", self._pending,
-                  self._numrecs, self._pct * 100.0)
+    def serve_template(self, templatename, **kwargs):
+        """
+        This initializes our mako template serving directory and allows
+        us to return it's compiled embeded html pages rather than the
+        default return of a static html page.
+        """
+
+        _hplookup = TemplateLookup(directories=[self.templates_dir])
+        try:
+            tpath = os.path.join(self.templates_dir, templatename)
+            if not os.path.exists(tpath):
+                log.error("Unable to locate the template file: %s", tpath)
+                
+            template = _hplookup.get_template(templatename)
+            return template.render(**kwargs)
+        except:
+            return exceptions.html_error_template().render()
 
     def _request_scan_time(self):
         log.debug("Requesting scan time.")
-        self.bus.publish('db-scan-time-get', 0)
+        sttup = self.bus.publish('db-scan-time-get', 0).pop()
+        self._scan_time, self._pending, self._numrecs, self._pct = sttup
+        log.debug("Got scan time of: %s" % self._scan_time)
+        log.debug("Pending: %d  nrec: %d   pct: %.2f%%", self._pending,
+                  self._numrecs, self._pct * 100.0)
+        return sttup
 
     def pag(self, cur, last):
         """ Work out pagination based on the current (cur) and last pages.
@@ -144,14 +141,14 @@ class Gazeesrv(object):
 
         pages = self.pag(page_num, num_of_pages)
         log.info("Pages: %s", pages)
-        return serve_template(templatename="index.html", comics=comics,
-                              num_of_pages=num_of_pages,
-                              current_page=int(page_num),
-                              pages=pages, user_level=user_level,
-                              maxwid=gazee.config.THUMB_MAXWIDTH,
-                              maxht=gazee.config.THUMB_MAXHEIGHT,
-                              num_comics=num_comics, num_recent=num_recent,
-                              total_bytes=bytes_str)
+        return self.serve_template(templatename="index.html", comics=comics,
+                                   num_of_pages=num_of_pages,
+                                   current_page=int(page_num),
+                                   pages=pages, user_level=user_level,
+                                   maxwid=gazee.config.THUMB_MAXWIDTH,
+                                   maxht=gazee.config.THUMB_MAXHEIGHT,
+                                   num_comics=num_comics, num_recent=num_recent,
+                                   total_bytes=bytes_str)
 
     @cherrypy.expose
     def aindex(self, page_num=1, recent=False):
@@ -191,12 +188,12 @@ class Gazeesrv(object):
 
         pages = self.pag(page_num, num_of_pages)
         log.info("Pages: %s", pages)
-        return serve_template(templatename="aindex.html", comics=comics,
-                              num_of_pages=num_of_pages,
-                              current_page=int(page_num),
-                              pages=pages, user_level=user_level,
-                              maxht=gazee.config.THUMB_MAXHEIGHT,
-                              maxwid=gazee.config.THUMB_MAXWIDTH)
+        return self.serve_template(templatename="aindex.html", comics=comics,
+                                   num_of_pages=num_of_pages,
+                                   current_page=int(page_num),
+                                   pages=pages, user_level=user_level,
+                                   maxht=gazee.config.THUMB_MAXHEIGHT,
+                                   maxwid=gazee.config.THUMB_MAXWIDTH)
 
     @cherrypy.expose
     def cidnav(self, cid=-1):
@@ -225,10 +222,10 @@ class Gazeesrv(object):
 
         log.info("Search Served")
 
-        return serve_template(templatename="search.html",
-                              current_page=int(page_num),
-                              user_level=user_level,
-                              search_string=search_string)
+        return self.serve_template(templatename="search.html",
+                                   current_page=int(page_num),
+                                   user_level=user_level,
+                                   search_string=search_string)
 
     """
     This returns the library view starting with the root library directory.
@@ -245,11 +242,11 @@ class Gazeesrv(object):
         user = cherrypy.request.login
         user_level = self.gset.get_user_level(user)
 
-        return serve_template(templatename="library.html",
-                              comics=comics,
-                              current_page=int(page_num),
-                              current_dir=directory,
-                              user_level=user_level)
+        return self.serve_template(templatename="library.html",
+                                   comics=comics,
+                                   current_page=int(page_num),
+                                   current_dir=directory,
+                                   user_level=user_level)
 
     @cherrypy.expose
     def cover(self, id=-1):
@@ -324,11 +321,11 @@ class Gazeesrv(object):
 
         now_page = "read_page?cid=%d&page_num=%d" % (cid, page_num)
         log.debug("now_page is: %s" % now_page)
-        return serve_template(templatename="read.html", pages=image_list,
-                              current_page=page_num, np=next_page,
-                              nop=num_pages, now_page=now_page,
-                              cid=cid, prevcid=pcid, nextcid=ncid,
-                              cc=cookie_comic, title=title)
+        return self.serve_template(templatename="read.html", pages=image_list,
+                                   current_page=page_num, np=next_page,
+                                   nop=num_pages, now_page=now_page,
+                                   cid=cid, prevcid=pcid, nextcid=ncid,
+                                   cc=cookie_comic, title=title)
 
     @cherrypy.expose
     def read_page(self, cid=-1, page_num=1):
@@ -350,6 +347,7 @@ class Gazeesrv(object):
         opath = "%s/Books/%s/%d" % (gazee.config.TEMP_DIR, username, cid)
 
         if not os.path.exists(opath):
+            log.error("Book output directory doesn't exist at path: %s" % opath)
             return "fail"
 
         image_list = [ os.path.join(opath, fn) for fn in sorted(os.listdir(opath)) ]
@@ -439,10 +437,9 @@ class Gazeesrv(object):
 
     @cherrypy.expose
     def get_scantime(self):
-        self._request_scan_time()
-        time.sleep(0.2)
-        d = {'scan_time': self._scan_time, 'pending': self._pending,
-             'numrecs': self._numrecs, 'pct': self._pct}
+        dt = self._request_scan_time()
+        d = {'scan_time': dt[0], 'pending': dt[1],
+             'numrecs': dt[2], 'pct': dt[3]}
         return json.dumps(d)
 
     @cherrypy.expose

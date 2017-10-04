@@ -156,6 +156,8 @@ def extract_thumb(crl):
             process = subprocess.Popen(args, shell=False)
             process.wait()
             mkregthumb = False
+        else:
+            log.debug("Making a regular thumbnail for cid: %s", cid)
         
 #        os.system('/bin/bash %s -T %dx%d "%s" "%s"' % (script, rx, ry, natpath, opath))
         

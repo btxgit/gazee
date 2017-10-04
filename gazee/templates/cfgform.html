@@ -10,12 +10,29 @@
   <input id="cpinput" name="cpinput" type="text" placeholder="Comic Path" aria-describedby="cphelp" class="form-control" required="">
   <small id="cphelp" class="form-text text-muted">Enter the pathname of your comic book share</small>  
 </div>
+<div class="form-group">
+  <label for="cpinput" class="form-control-label">Temporary File Path</label>
+  <input id="cpinput" name="cpinput" type="text" placeholder="Temp Path" aria-describedby="cphelp" class="form-control" required="">
+  <small id="cphelp" class="form-text text-muted">Enter a path that can hold a good amount of files - it'll hold cache and unpacked book images.</small>
+</div>
 
 <div class="form-group">
   <label for="nppinput" class="form-control-label">Covers per Page</label>  
   <input id="nppinput" name="nppinput" type="text" aria-describedby="npphelp" class="form-control col-1" required="">
   <small id="npphelp" class="form-text text-muted">Enter the number of cover thumbnails you want per index page.</small>  
 </div>
+
+<div class="form-inline"><label class="mr-sm-2" for="inlineFormCustomSelect">Bind To...</label>
+    <select class="custom-select mb-2 mr-sm-2 mb-sm-0" id="inlineFormCustomSelect">
+        <option selected>Address...</option>
+        <option value="1">127.0.0.1 (local)</option>
+        <option value="2">0.0.0.0 (any traffic</option>
+    </select>
+
+    <label class="sr-only" for="portinput">Port</label>
+    <input type="text" class="form-control" id="portinput" placeholder="Username" />
+</div>
+
 
 <div class="form-group">
   <label for="csiinput" class="form-control-label">Scan Interval (min)</label>  

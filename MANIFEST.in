@@ -1,6 +1,6 @@
 include *md
 include bin/Gazee.py
-include gazee/public/html/*html
+include gazee/templates/*html
 include gazee/public/css/*css
 include gazee/public/js/*js
 include gazee/public/images/*png

@@ -31,8 +31,11 @@ class ScanDirs(SimplePlugin):
     _interval = None
     _next_time = None
     _scan_start = None
+    
+    _thumb_width = None
+    _thumb_height = None
 
-    def __init__(self, bus, interval = 300, comic_path=None, temp_path=None, sleep = 1):
+    def __init__(self, bus, interval = 300, comic_path=None, temp_path=None, sleep = 1, thumb_width = 300, thumb_height = 400):
         SimplePlugin.__init__(self, bus)
 
         self._cdb = comic_db()
@@ -41,6 +44,8 @@ class ScanDirs(SimplePlugin):
         self._comic_path = comic_path
         self._temp_path = temp_path
         self._request_scan = 0
+        self._thumb_width = thumb_width
+        self._thumb_height = thumb_height
 
     def start(self):
         self.bus.subscribe('db-scanner-scan', self._do_scan)
@@ -74,6 +79,9 @@ class ScanDirs(SimplePlugin):
                 self.bus.log("Starting dir tree scanning...")
                 self._cdb.scan_directory_tree(self._comic_path, 0)
                 self.bus.log("Ended dir scanning...")
+                self.bus.log("Starting cache scanning...")
+                self._cdb.reset_missing_covers(self._thumb_width, self._thumb_height)
+                self.bus.log("Done cache scanning...")
                 self.bus.log("Starting thumb job...")
                 self._cdb.do_thumb_job()
                 self.bus.log("Ended thumb job...")
@@ -112,5 +120,6 @@ class ScanDirs(SimplePlugin):
         rv = (tv, pend, nrec, pct)
 
         self.bus.log("Returning scantime of %s" % str(rv))
+        return rv
 
-        self.bus.publish('db-scan-time-put', rv)
+#        self.bus.publish('db-scan-time-put', rv)

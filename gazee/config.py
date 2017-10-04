@@ -42,6 +42,7 @@ class gcfg(object):
         self.logpath = None
         self.dbpath = None
         self.sessionspath = None
+        print("Created a new gcfg...") 
         
         if self.datapath is not None:
             self.datapath = os.path.realpath(os.path.expanduser(self.datapath))
@@ -81,7 +82,7 @@ class gcfg(object):
         firstdir = None
         cfgfound = None
         
-        print("Looking for config in find_config() - datapath: %s" % (self.datapath))
+#        print("Looking for config in find_config() - datapath: %s" % (self.datapath))
         
         if self.datapath is not None:
             if not os.path.exists(self.datapath):
@@ -191,6 +192,7 @@ class gcfg(object):
                         print("You don't have the permissions to create that path.\n")
                         continue
                 else:
+                    print("Not creating directory: %s" % p)
                     continue
             break
         return p
@@ -198,6 +200,8 @@ class gcfg(object):
     def configRead(self):
         ''' Read the app.ini config file.
         '''
+        
+        print("configRead() being called...")
         dp = self.find_config()
 
         if dp is None or self.datapath is None:
@@ -216,20 +220,22 @@ class gcfg(object):
 #        print('ddbpath: %s' % str(self.dbpath))
 #        print('sessionsbpath: %s' % str(self.sessionspath))
         self.cfg.set('GLOBAL', 'data_dir', self.datapath)
-        self.cfg.set('GLOBAL', 'log_dir', self.logpath)
-        self.cfg.set('GLOBAL', 'db_dir', self.dbpath)
-        self.cfg.set('GLOBAL', 'sessions_dir', self.sessionspath)
 
-        if 'comic_path' not in self.cfg['GLOBAL'] or self.cfg.get('GLOBAL', 'comic_path') is None:
+        if 'comic_path' not in self.cfg['GLOBAL'] or self.cfg.get('GLOBAL', 'comic_path') in [None, '']:
             cpath = self.get_path("your comic share's path")
             if cpath is not None:
                 self.cfg.set('GLOBAL', 'comic_path', cpath)
 
-        if 'temp_dir' not in self.cfg['GLOBAL'] or self.cfg.get('GLOBAL', 'temp_dir') is None:
+        if 'temp_dir' not in self.cfg['GLOBAL'] or self.cfg.get('GLOBAL', 'temp_dir') in [None, '']:
             tdir = self.get_path('a directory for temporary (large) file storage')
             if tdir is not None:
                 self.cfg.set('GLOBAL', 'temp_dir', tdir)
 
+        self.configWrite()
+        
+        self.cfg.set('GLOBAL', 'log_dir', self.logpath)
+        self.cfg.set('GLOBAL', 'db_dir', self.dbpath)
+        self.cfg.set('GLOBAL', 'sessions_dir', self.sessionspath)
         self.globalize()
         
         return True

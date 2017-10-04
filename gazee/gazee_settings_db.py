@@ -31,6 +31,7 @@ log = logging.getLogger(__name__)
 def hash_pass(password):
     return sha256(bytes(password, encoding='utf-8')).hexdigest()
 
+
 def get_password(username):
     dbpath = os.path.join(gazee.config.DB_DIR, "gazee_settings.db")
 
@@ -46,6 +47,7 @@ def get_password(username):
 
     return pw
 
+
 class gazee_settings(gazee_db):
     SCHEMA_VERSION = 1
 
@@ -54,7 +56,8 @@ class gazee_settings(gazee_db):
         self.init_db()
         if not self.have_admin_account():
             log.error("got error back from have_admin_account()!")
-    
+
+
     def get_db_name(self):
         return 'gazee_settings.db'
 

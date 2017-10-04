@@ -173,7 +173,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
             fdp, fn = os.path.split(fp)
 
             if not os.path.exists(fp):
-                delcl.append(did)
+                delcl.append((did, ))
 
             if dn != did:
                 dn = did
@@ -221,6 +221,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         resext = "%dx%d" % (twid, tht) if twid > 0 else "native"
 
         cachepath = os.path.join(gazee.config.TEMP_DIR, 'cache', str(part))
+#        log.debug("Cache directory is: %s", cachepath)
         if twid == -1:
             return cachepath
 
@@ -235,6 +236,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         cp2 = os.path.join(cachepath, cfn2)
         if forceproc == 2:
             return cp2
+        elif forceproc == 3:
+            return (cp1, cp2)
 
         if os.path.exists(cp1):
             return cp1
@@ -254,8 +257,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
             sql = '''SELECT comicid FROM all_comics WHERE image is not null;'''
             for row in con.execute(sql):
                 cid = row[0]
-                tp = self.get_cache_path(cid, wid, ht)
-                if not os.path.exists(tp):
+                tpt = self.get_cache_path(cid, wid, ht, 3)
+                if not os.path.exists(tpt[0]) and not os.path.exists(tpt[1]):
                     resetids.append((cid, ))
 
         log.info("Resetting %d image fields to add in support"
@@ -266,7 +269,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
             con.executemany(sql, resetids)
             con.commit()
-
+            
     def scan_directory_tree(self, curdir, parentid):
         log.debug("Scanning comic dir: %s" % curdir)
         self.delete_stale_directory_entries()
@@ -301,11 +304,12 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                 sql = '''INSERT INTO all_comics(dirid, filename, filesize) VALUES (?, ?, ?)'''
                 con.executemany(sql, addfns)
                 con.commit()
+                log.info("Added %d new comic files.", len(addfns))
 
             parentid = curdirid
 
-            if (num_fn_added > 0):
-                log.info("Added %d comics" % num_fn_added)
+        if (num_fn_added > 0):
+            log.info("Added %d comics" % num_fn_added)
 
     def update_comic_image(self, cid, val, width, height):
 
@@ -368,7 +372,10 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         created = 0
         self._numrecs = self.get_all_comics_count()
         self._pending = self.get_unprocessed_comics_count()
-        self._pct = ((self._numrecs - self._pending) / self._numrecs)
+        if self._numrecs == 0:
+            self._pct = 0.0
+        else:
+            self._pct = ((self._numrecs - self._pending) / self._numrecs)
 
         jobs_pending = 0
 
@@ -447,7 +454,10 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                     issue = ''
 
                 self.update_comic_meta(cid, num_pages, series, issue)
-            self._pct = ((self._numrecs - self._pending) / self._numrecs)
+            if self._numrecs == 0:
+                self._pct = 0.0
+            else:
+                self._pct = ((self._numrecs - self._pending) / self._numrecs)
         log.info("Created %d thumbnails...", created)
         self.last_thumb_time = None
         return True
