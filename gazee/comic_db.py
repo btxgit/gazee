@@ -610,33 +610,30 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
     def get_comics_stats(self, days=7):
         sql = '''SELECT COUNT(*), SUM(filesize) FROM all_comics'''
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = con.cursor()
-        num_comics, sizeval = con.execute(sql).fetchone()
-        if not isinstance(num_comics, int):
-            num_comics = int(num_comics, 10)
-        num_comics = '{:,d}'.format(num_comics)
-        sql = '''SELECT COUNT(*), SUM(filesize) FROM all_comics WHERE image is null'''
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = con.cursor()
-        num_unprocessed, unprocsize = con.execute(sql).fetchone()
-        if not isinstance(num_unprocessed, int):
-            num_unprocessed = int(num_unprocessed, 10)
-        num_unprocessed = '{:,d}'.format(num_unprocessed)
-        sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
-        row = curs.execute(sql).fetchone()
-        num_recent = row[0]
-
-        if not isinstance(num_recent, int):
-            num_recent = int(num_recent, 10)
-        num_recent = '{:,d}'.format(num_recent)
-        if unprocsize is None:
-            unprocsize = 0
-        total_size_str = sizestr(sizeval)
-        total_unprocsize = sizestr(unprocsize)
         
-        con.close()
-
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            num_comics, sizeval = con.execute(sql).fetchone()
+            if not isinstance(num_comics, int):
+                num_comics = int(num_comics, 10)
+            num_comics = '{:,d}'.format(num_comics)
+            sql = '''SELECT COUNT(*), SUM(filesize) FROM all_comics WHERE image is null'''
+            num_unprocessed, unprocsize = con.execute(sql).fetchone()
+            if not isinstance(num_unprocessed, int):
+                num_unprocessed = int(num_unprocessed, 10)
+            num_unprocessed = '{:,d}'.format(num_unprocessed)
+            sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
+            row = con.execute(sql).fetchone()
+            num_recent = row[0]
+            
+            if not isinstance(num_recent, int):
+                num_recent = int(num_recent, 10)
+            num_recent = '{:,d}'.format(num_recent)
+            
+            if unprocsize is None:
+                unprocsize = 0
+            total_size_str = sizestr(sizeval)
+            total_unprocsize = sizestr(unprocsize)
+        
         return num_comics, num_recent, total_size_str, num_unprocessed, total_unprocsize
 
 

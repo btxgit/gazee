@@ -103,6 +103,11 @@ def daemonize():
 def main():
     global log
 
+    if (sys.platform == 'win32' and
+            sys.executable.split('\\')[-1] == 'pythonw.exe'):
+        sys.stdout = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w")
+
     desc = "Gazee: Open Comic Book Reader"
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('-d', '--daemon',
@@ -131,39 +136,7 @@ def main():
         log.setLevel(logging.DEBUG)
         elog.setLevel(logging.DEBUG)
 
-    def _loop(self):
-        while self._running:
-            try:
-                self._scan_start = time.time()
-                self._request_scan = time.time() + self._interval
-                self.bus.log("Scheduled %d seconds from now." % self._interval)
-                self._busy = True
-                self.bus.log("Starting dir tree scanning...")
-                self._cdb.scan_directory_tree(self._comic_path, 0)
-                self.bus.log("Ended dir scanning...")
-                self.bus.log("Starting cache scanning...")
-                self._cdb.reset_missing_covers(self._thumb_width, self._thumb_height)
-                self.bus.log("Done cache scanning...")
-                self.bus.log("Starting thumb job...")
-                self._cdb.do_thumb_job()
-                self.bus.log("Ended thumb job...")
-                bpath = os.path.join(self._temp_path, 'Books')
-                for username in os.listdir(bpath):
-                    self.bus.log("Beginning tempdir clean of user: %s..." % username)
-                    opath = os.path.join(bpath, username)
-                    self._cdb.clean_out_tempspace(opath, 10)
-                    self.bus.log("Tempdir clean for user %s is complete." % username)
-                self.bus.log("Completed with tasks.")
-            except:
-                self.bus.log("Error in dir tree scan plugin.", level = logging.ERROR, traceback = True)
-
-            self._busy = False
-            self._scan_start = None
-
-            while self._running and time.time() < self._request_scan:
-                time.sleep(self._sleep)
-    
-    gazee.UncompressThread(cherrypy.engine)
+    gazee.UncompressThread(cherrypy.engine).subscribe()
     gazee.ScanDirs(cherrypy.engine, interval=300,
                    comic_path=gazee.config.COMIC_PATH,
                    temp_path=gazee.config.TEMP_DIR,
@@ -184,7 +157,7 @@ def main():
                 Daemonizer(cherrypy.engine).subscribe()
 
             try:
-                PIDFile(cherrypy.engine, PIDFile).subscribe()
+                PIDFile(cherrypy.engine, args.pidfile).subscribe()
             except IOError as e:
                 raise SystemExit("Unable to write PID file: %s [%d]" % (e.strerror, e.errno))
 
@@ -251,8 +224,4 @@ def main():
 
 
 if __name__ == '__main__':
-    if (sys.platform == 'win32' and
-            sys.executable.split('\\')[-1] == 'pythonw.exe'):
-        sys.stdout = open(os.devnull, "w")
-        sys.stderr = open(os.devnull, "w")
     main()

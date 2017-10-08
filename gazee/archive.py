@@ -100,7 +100,7 @@ def extract_all_images(ao, outdir, imgpfx=''):
 #    print("Extracted %d pages of to %s." % (num_extracted, outdir))
     return ifiles
 
-def extract_thumb(crl, ):
+def extract_thumb(crl):
     cp, cid, reslist, image_script = crl
     num_pages = 0
     atype = identify_arch(cp)
@@ -115,7 +115,7 @@ def extract_thumb(crl, ):
             with rarfile.RarFile(cp) as ao:
                 num_pages, sio = extract_cover_thumb(ao)
         else:
-            return {'error': True, 'cid': cid, 'message': 'Unrecognized archvie format', 'path': cp}
+            return {'error': True, 'cid': cid, 'message': 'Unrecognized archive format', 'path': cp}
         if (num_pages == 0):
             return {'error': True, 'cid': cid, 'message': 'This archive has no image files.', 'path': cp}
     except:

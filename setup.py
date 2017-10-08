@@ -55,6 +55,8 @@ bcfg = build_config(
     include_package_data=True,
     install_requires=inrel,
     zip_safe=False,
-    scripts=['bin/Gazee.py']
+    entry_points={
+        'console_scripts': ['Gazee=gazee.__main__:main']
+    }
 )
 setup(cmdclass={ 'distclean': CleanCommand }, **bcfg)

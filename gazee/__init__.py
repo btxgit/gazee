@@ -13,7 +13,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Gazee.  If not, see <http://www.gnu.org/licenses/>.
 
-__version__ = '0.1.0'
+__version__ = '0.1.2'
 
 from gazee.config import gcfg
 from gazee.gazee_settings_db import gazee_settings
@@ -32,7 +32,7 @@ PIDFILE = '/var/run/gazee.pid'
 PORT = 4242
 COMIC_PATH = ''
 COMIC_SCAN_INTERVAL = 60
-COMICS_PER_PAGE = 18
+COMICS_PER_PAGE = 15
 MYLAR_DB = ''
 SSL_KEY = ''
 SSL_CERT = ''

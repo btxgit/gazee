@@ -58,21 +58,20 @@ Double check this on Windows, different systems have different requirements for 
     cd <directory you want to install to>
     git clone https://github.com/hubbcaps/gazee.git
     cd gazee
-    sudo pip install -r requirements.txt
-    python Gazee.py
+    sudo python3 setup.py install
     
-**Note**
-If you see an error similar to the following
+During the installation, look for a line like:
 
-    $ python Gazee.py
-    File "Gazee.py", line 194
-    cherrypy.engine.timeout_monitor.on: False
-    ^
-    SyntaxError: invalid syntax
+    Installing Gazee script to /usr/lib/python3.6/bin/
 
-This likely means your systems default version of python is 2.x. Verify you have python 3.6 installed and call it explicitly with python3 or python3.6
+That if that directory isn't in your path, you can always do something like:
 
-    python3 Gazee.py
+    cd /usr/local/bin
+    ln -s /usr/lib/python3.6/bin/Gazee
+
+...and start Gazee:
+
+    Gazee
 
 **Step 2: Logon to Gazee's Web UI**)
 
@@ -91,18 +90,7 @@ You can easily run the program in Daemon mode by using the -d flag
 
     python Gazee.py -d
 
-## Docker Container
-
-Alternatively, instead of doing a local install, you can install the docker container.
-
-The docket container can be pulled from [here](https://github.com/hubbcaps/docker-gazee) or from [dockerhub](https://hub.docker.com/r/hubcapps/gazee/).
-
 ### QOL Features on the Roadmap
 
 These are features that will make Gazee better and more up to par in what should be expected of a modern comic reader, but aren't needed for actual usability.
 
-- [ ] Random First Issue of a series in library.
-- [ ] OPDS Support.
-- [ ] User set image sizes. (implemented in this branch)
-- [ ] Notifications on new comics
-- [ ] Reports on various stats of your library; number of bad archives, comics without metadata, etc etc
