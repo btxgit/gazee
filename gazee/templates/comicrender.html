@@ -4,10 +4,8 @@
                   <div class="outerguess" id="outcov${comic['Key']}" style="height: ${maxht + 55}px;">
                     <figure style="width: ${maxwid}px;">
                       <a href="/read_comic?cid=${comic['Key'] | u}&ncid=${comic['NextCID'] | u}&pcid=${comic['PrevCID'] | u}" id="image-link"></a>
-                      <div id="cov${comic['Key']}" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
-                        <a href="/read_comic?cid=${comic['Key'] | u}&ncid=${comic['NextCID'] | u}&pcid=${comic['PrevCID'] | u}" class="image-link">
-                          <img class="smcover" style="max-height: ${maxht}px;" src="/cover?id=${comic['Key']}">
-                        </a>
+                      <div id="cov${comic['Key']}" style="coverthumb height: ${maxht}px; overflow: hidden; margin: 0px auto;">
+                          <img class="smcover" cid="${comic['Key']}" style="max-height: ${maxht}px;" src="/cover?cid=${comic['Key']}">
                       </div>
                       <figcaption>
                         <div class="ucwrap" style="height: 45px">

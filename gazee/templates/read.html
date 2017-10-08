@@ -12,13 +12,13 @@
     <%include file="readhelp.html" />
     </div>
     <div class="reader-overlay" cid="${cid}" nop="${nop}" prevcid="${prevcid}" nextcid="${nextcid}" cpage="${current_page}" step="1">
-      <img class="pgone" src="${now_page}"/>
-      <img class="pgtwo" style="display: none;" src=""/>
+      <img class="pgone col-lg-auto" src="${now_page}"/>
+      <img class="pgtwo col-lg-auto" style="display: none;" src=""/>
     </div>
   </div>
   </body>
-  <div id="roverlay" style="z-index: -1; position: absolute;width: 98%;display:none; top: 288px;background-color: transparent;left: 1%;height: 60px;">
-    <span class="leftmsg badge-pill" style="background-color: black; color: white; float: left; padding: 15px 20px;"></span><span class="rightmsg badge-pill" style="background-color: black; float: right; color: white; padding: 15px 20px; z-index: -100;"></span>
+  <div id="roverlay" style="display: none;">
+    <span class="leftmsg badge-pill" style="background-color: black; color: white; float: left;"></span><span class="rightmsg badge-pill" style="background-color: black; float: right; color: white;"></span>
   </div>
   <script type="text/javascript">
     tmpev = null;
@@ -171,13 +171,29 @@
             rightpg = curpg;
         } else {
             var newurl = make_page_url(cid, twop)
+            var cururl = $('img.pgtwo').attr('src')
+            
             rightpg = twop;
-            console.debug("Setting twopg URL to: " + newurl)
-            $('div.reader-overlay img.pgtwo').attr('src', newurl).show()
+            
+            if (newurl !== cururl) {
+                console.debug("Setting twopg URL to: " + newurl)
+//            console.log("Setting height to maximum of " + maxw + "x" + maxh)
+                $('div.reader-overlay img.pgtwo').attr('src', newurl).show()
+            }
         }
         
-        $('span.leftmsg').text("" + leftpg)
-        $('span.rightmsg').text("" + rightpg)
+        if (leftpg < 10)
+            leftstr = "0" + leftpg
+        else
+            leftstr = "" + leftpg
+            
+        if (rightpg < 10)
+            rightstr = "0" + rightpg
+        else
+            rightstr = "" + rightpg
+        
+        $('span.leftmsg').text(leftstr)
+        $('span.rightmsg').text(rightstr)
         topval = ($(window).height() - 60) / 2
         $('#roverlay').css('top', topval).show()
         
@@ -193,37 +209,30 @@
             console.log("timeout set.");
         }
         
+/*
+        var maxw = $(window).width()
+        var maxh = $(window).height()
+        
+        if ($('img.pgone').width() > maxw) {
+            console.log("Width (" + $('img.pgone').width() + ") _IS_ bigger than the maxw: " + maxw)
+            $('img.pgone').css('height', '').css('width', maxw)
+            return
+        } else {
+           console.log("Width (" + $('img.pgone').width() + ") is not bigger than the maxw: " + maxw)
+        }
+*/        
+        
         var wid = get_width()
         var cls = "reader-page-" + wid
         
         $('div.reader-overlay img.pgone').attr('class', cls + " pgone")
         $('div.reader-overlay img.pgtwo').attr('class', cls + " pgtwo")
 
-        if (wid == 'norm') {
-            var maxwid = $(window).width()
-            var curwid = $('div.reader-overlay').width()
-
-            console.log("max: " + maxwid + " cur: " + curwid)
-/*
-            if (curwid > maxwid) {
-                $('div.reader-overlay img').css('width', '50%')
-            } else {
-                $('div.reader-overlay img').css('width', '')
-            }
-*/            
-        }
-        
     }
     
     $(function() {
         $('body').css('display', 'block')
         check_preload();
-/*
-        $(".reader-overlay").click(function() {
-            $('div.reader-overlay').hide()
-            $("div.overlay-settings").show()
-        });
- */        
         $('#clsettings-button').on('click', function() {
             $('#page-settings-text').hide()
             $('.reader-overlay').show()
@@ -248,7 +257,7 @@
             var step = parseInt($('div.reader-overlay').attr('step'), 10)
             var prevcid = parseInt($('div.reader-overlay').attr('prevcid'), 10)
             var nextcid = parseInt($('div.reader-overlay').attr('nextcid'), 10)
-
+            apply_settings()
             console.debug("cid: " + cid + " nop: " + nop + " curpg: " + curpg);
 
             console.debug(e.which + " is the keycode. ");
@@ -367,6 +376,12 @@
                 return;
             }
         });
+
+        $('div.reader-overlay img').on('load', function() {
+            console.log("@@@ Page image was loaded." + $(this).attr('class') )
+            apply_settings()
+        })
+        
         $('button.close').on('click', function() {
             $('div.reader-overlay').toggle()
             $("div.overlay-settings").toggle() 

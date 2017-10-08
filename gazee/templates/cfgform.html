@@ -1,4 +1,4 @@
-<form class="form-horizontal" style="margin: auto; border: 2px solid black; border-radius: 6px; width: 800px; text-align: initial;">
+<form class="form-horizontal" style="margin: auto; border: 2px solid black; border-radius: 6px; width: 1000px; text-align: initial;">
 <fieldset style="padding: 10px;">
 
 <!-- Form Name -->
@@ -11,66 +11,86 @@
   <small id="cphelp" class="form-text text-muted">Enter the pathname of your comic book share</small>  
 </div>
 <div class="form-group">
-  <label for="cpinput" class="form-control-label">Temporary File Path</label>
-  <input id="cpinput" name="cpinput" type="text" placeholder="Temp Path" aria-describedby="cphelp" class="form-control" required="">
+  <label for="tpinput" class="form-control-label">Temporary File Path</label>
+  <input id="tpinput" name="tpinput" type="text" placeholder="Temp Path" aria-describedby="cphelp" class="form-control" required="">
   <small id="cphelp" class="form-text text-muted">Enter a path that can hold a good amount of files - it'll hold cache and unpacked book images.</small>
 </div>
 
-<div class="form-group">
-  <label for="nppinput" class="form-control-label">Covers per Page</label>  
-  <input id="nppinput" name="nppinput" type="text" aria-describedby="npphelp" class="form-control col-1" required="">
-  <small id="npphelp" class="form-text text-muted">Enter the number of cover thumbnails you want per index page.</small>  
+<div class="mt-6">
+<h6>Image Processing Settings</h6>
+</div>
+<div class="form-inline row">
+  <div class="form-group col-6">
+    <div class="col-form-label col-5" for="thumbsel">Thumb. Resolution: </div>
+      <select id="thumbsel" name="thumbsel" class="form-control col-5">
+        <option value="225x300">225x300</option>
+        <option value="300x400">300x400</option>
+        <option value="375x500">375x500</option>
+      </select>
+  </div>
+  <div class="form-group col-6">
+  <div class="col-form-label col-5">Covers per Page: </div>  
+  <input id="nppinput" name="nppinput" type="text" aria-describedby="npphelp" class="form-control col-2" required="">
+  </div>
 </div>
 
-<div class="form-inline"><label class="mr-sm-2" for="inlineFormCustomSelect">Bind To...</label>
-    <select class="custom-select mb-2 mr-sm-2 mb-sm-0" id="inlineFormCustomSelect">
+<div class="form-inline row">
+  <div class="form-group col-6">
+  <div for="csiinput" class="col-form-label col-5">Scan Interval (min): </div>  
+  <input id="csiinput" name="csiinput" type="text" aria-describedby="csihelp" class="form-control col-2" required="">
+  </div>
+  <div class="form-group col-6">
+    <div class="col-5 col-form-label">Image Script: </div>
+    <div class="col-2">
+       <input type="checkbox" name="postproc" id="postproc-0" value="1" />
+    </div>
+  </div>
+</div>
+
+<div class="form-inline row">
+<div class="form-group col-12" style="margin-top: 5px;">
+<div class="col-md-auto" id="scantime" style="margin: 0 5px;">Duration: 0:00</div>
+<div class="progress col" style="width: 100%; margin: 0 10px; padding: 0;">
+  <div id="scanprog" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+</div>
+<div class="col-md-auto" id="pending" style="margin: 0 5px;">123,123 of 456,456</div>
+
+</div>
+</div>
+
+<div style="margin: 15px 0 0;">
+<h6>Network Settings</h6>
+</div>
+
+<div class="form-inline mt-2 row">
+  <div class="form-group col-6">
+    <div class="col-5 col-form-label" for="bindaddrsel">Bind To: </div>
+    <select class="custom-select col-5" id="bindaddrsel" name="bindaddrsel">
         <option selected>Address...</option>
         <option value="1">127.0.0.1 (local)</option>
         <option value="2">0.0.0.0 (any traffic</option>
     </select>
-
-    <label class="sr-only" for="portinput">Port</label>
-    <input type="text" class="form-control" id="portinput" placeholder="Username" />
-</div>
-
-
-<div class="form-group">
-  <label for="csiinput" class="form-control-label">Scan Interval (min)</label>  
-  <input id="csiinput" name="csiinput" type="text" aria-describedby="csihelp" class="form-control col-1" required="">
-  <small id="csihelp" class="form-text text-muted">Enter the number of minutes in between comic share scanning.</small>  
-</div>
-
-
-<div class="form-group">
-  <label class="control-label" for="thumbsel">Thumbnail Resolution</label>
-    <select id="thumbsel" name="thumbsel" class="form-control col-2">
-      <option value="225x300">225x300</option>
-      <option value="300x400">300x400</option>
-      <option value="375x500">375x500</option>
-    </select>
-</div>
-
-<!-- Multiple Checkboxes -->
-<div class="form-group">
-  <label class="control-label" for="postcheckboxes">Post-Processing Options</label>
-  <div class="checkbox">
-    <label for="postproc-0">
-      <input type="checkbox" name="postproc" id="postproc-0" value="1">
-      Image Edge Processing
-    </label>
+  </div>
+  <div class="form-group col-6">
+    <div class="col-5 col-form-label" for="portinput">Port: </div>
+    <input type="text" class="form-control col-2" id="portinput" name="portinput" placeholder="Port" />
   </div>
 </div>
 
 <!-- Button -->
-<div class="form-group row">
-  <label class="col-sm-3 control-label" for="restartbutton">Control Server</label>
-  <div class="">
+<div class="form-inline row" style="margin-top: 10px; margin-bottom: 5px;">
+<div class="form-group col-12">
+  <div class="col-2 col-form-label">Control Server: </div>
+  <span class="col-6" style="padding-left: 2rem;">
+    <button id="scanbutton" name="scantbutton" class="btn btn-info">Rescan</button>
     <button id="restartbutton" name="restartbutton" class="btn btn-warning">Restart</button>
-  </div>
-  <div class="">
-    <button id="eixtbutton" name="exitbutton" class="btn btn-danger">Exit</button>
-  </div>
+    <button id="exitbutton" name="exitbutton" class="btn btn-danger">Terminate</button>
+  </span>
 </div>
+</div>
+<div style="margin-top: 2.5rem;">
 <button class="btn btn-primary" type="submit">Submit</button>
+<button class="btn btn-secondary" id="btn-cancel">Cancel</button>
+</div>
 </fieldset>
 </form>

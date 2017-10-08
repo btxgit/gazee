@@ -34,6 +34,12 @@
                 Total Number of Comics: ${num_comics}
             </div>
             <div class="col col-sm align-self-center">
+                Num. Unprocessed: ${nup}
+            </div>
+            <div class="col col-sm align-self-center">
+                Unprocessed Space: ${tunp}
+            </div>
+            <div class="col col-sm align-self-center">
                 Recently Added Comics: ${num_recent}
             </div>
             <div class="col col-sm align-self-center">
@@ -103,14 +109,44 @@
            console.log(ttxt);
         });
         
-        $(document).on('keyup', function(e) {
+        $(document).on('keydown', function(e) {
+            var delta = null
+            
             if (e.which === 39) {
                 console.log(e);
-                change_page(1)
+                if (e.shiftKey)
+                    delta = 10
+                else
+                    delta = 1
             } else if (e.which === 37) {
                 console.log(e);
-                change_page(-1)
+                if (e.shiftKey)
+                    delta = -10
+                else
+                    delta = -1
             }
+            if (delta !== null)
+                change_page(delta)
+        })
+        
+        $('#btn-cancel').on('click', function(e) {
+            e.preventDefault()
+            $('#gazeeconf').hide()
+            $('header').show()
+            $('footer').show()
+            $('#pgcontent').show()
+        })
+        
+        $('#scanbutton').on('click', function(e) {
+            e.preventDefault()
+            $.post('/do_rescan', function() { console.log("Called /do_rescan.") })
+        })
+        
+        $('#pgcontent').on('click', 'img.smcover', function() {
+            var tcid = $(this).attr('cid')
+            var u = '/read_comic?cid=' + tcid
+            window.location.href = u
+            return
         })
         
         $('#gazeeconf button.btn-primary').on('click', function(e) {
@@ -134,16 +170,13 @@
           var hval = window.location.hash.substr(1)
           var curl = $('span.paglink.active').attr('pg')
 
-          console.log("Saw a hash change...")
+          console.log("Saw a hash change hval: " + hval + " curl: " + curl)
 
           if ((hval === '') || (hval === curl)) {
              save_last_index_page(curl)
              console.log("On proper page already.")
              return
           }
-
-          console.log("Switching to page: " + hval)
-          
 
           var u = '/aindex?page_num=' + hval
           $('#pgcontent').load(u, function() {
@@ -167,15 +200,55 @@
       
       function show_config() {
           $.getJSON('/load_settings').done(function(data) {
+              baval = (data.bindAddress == '0.0.0.0') ? 2 : 1
               $('#gazeeconf').show()
               $('header').hide()
               $('footer').hide()
               $('#pgcontent').hide()
               $(document).scrollTop(0)
               $('#cpinput').val(data.comicPath)
+              $('#tpinput').val(data.tempPath)
               $('#thumbsel').val(data.thumbRes)
               $('#csiinput').val(data.scanInterval)
               $('#nppinput').val(data.perPage)
+              $('#portinput').val(data.bindPort)
+              $('#bindaddrsel').val(baval)
+              start_timer()
+          })
+      }
+      
+      function start_timer() {
+          if (! $('#gazeeconf').is(':visible')) {
+              console.log("Ending timer, gazeeconf is no longer visible.")
+              return
+          }
+          $.getJSON('/get_scantime').done(function(data) {
+              var tval = data.scan_time
+              var timestr
+              var pending = data.pending
+              var numrecs = data.numrecs
+              var numstr = "" + pending + " of " + numrecs
+              
+              
+              if (tval == -1) {
+                  timestr = "Not Active"
+              } else {
+                  var nmin = Math.floor(tval / 60)
+                  var nsec = Math.floor(tval % 60)
+                  var nsecstr = "00" + nsec
+                  nsecstr = nsecstr.substr(-2)
+                  timestr = "Duration: " + nmin + ":" + nsecstr
+              }
+              var pct = Math.round(data.pct * 10000) / 100
+              $('#scanprog').css('width', "" + pct + "%").attr('aria-valuenow', pct).text("" + pct + "%")
+              $('#scantime').text(timestr)
+              $('#pending').text(numstr)
+              
+              
+          }).then(function() {
+              $.timeout(5000).done(function(data) {
+                  start_timer();
+              });
           })
       }
       

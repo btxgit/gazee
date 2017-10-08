@@ -10,6 +10,7 @@ __package__ = "gazee.archive"
 
 import os
 import sys
+import logging
 import zipfile
 import rarfile
 import traceback
@@ -17,6 +18,8 @@ from io import BytesIO
 from PIL import Image
 import subprocess
 import math
+
+log = logging.getLogger(__name__)
 
 
 def identify_arch(cp):
@@ -97,8 +100,8 @@ def extract_all_images(ao, outdir, imgpfx=''):
 #    print("Extracted %d pages of to %s." % (num_extracted, outdir))
     return ifiles
 
-def extract_thumb(crl):
-    cp, cid, reslist = crl
+def extract_thumb(crl, ):
+    cp, cid, reslist, image_script = crl
     num_pages = 0
     atype = identify_arch(cp)
     if atype is None:
@@ -149,15 +152,21 @@ def extract_thumb(crl):
         script = os.path.realpath('./imageborder')
 
         mkregthumb = True
-
-        if os.path.exists(script):
-            args = ['/bin/bash', script, '-T', '%dx%d' % (rx,ry), natpath, opath]
-            
-            process = subprocess.Popen(args, shell=False)
-            process.wait()
-            mkregthumb = False
+        
+        if image_script != 0:
+            if not os.path.exists(script):
+                log.error("Requested the image script, but can't find it - it must be in your current directory.")
+                return None
+            else:
+                log.debug("Making a script processed thumbnail for cid: %s", cid)
+                if os.path.exists(script) and image_script != 0:
+                    args = ['/bin/bash', script, '-T', '%dx%d' % (rx,ry), natpath, opath]
+                    
+                    process = subprocess.Popen(args, shell=False)
+                    process.wait()
+                    mkregthumb = False
         else:
-            log.debug("Making a regular thumbnail for cid: %s", cid)
+            log.debug("Making regular olde thumbnails.")
         
 #        os.system('/bin/bash %s -T %dx%d "%s" "%s"' % (script, rx, ry, natpath, opath))
         
@@ -198,9 +207,23 @@ def extract_archive(cp, temppath, pfx):
             with rarfile.RarFile(cp) as ao:
                 ifiles = extract_all_images(ao, temppath, pfx)
         else:
+            raise
             return {'error': True, 'message': 'Unrecognized archive format', 'path': cp}
     except:
+        raise ((ValueError, "Broken / Illegal file in archive."))
         traceback.print_exc(file=sys.stdout)
         return {'error': True, 'message': 'Caught exception while processing archive', 'path': cp}
 
     return ifiles
+
+def get_archfiles(srcarch):
+    try:
+        if atype == 1:
+            with zipfile.ZipFile(cp) as ao:
+                return (ao, [ ai for ai in sorted(ai.ZipInfo(), key=lambda x: x.filename) if ai.file_size > 0 and is_image_ext(ai.filename)])
+        elif atype == 2:
+            with rarfile.RarFile(cp) as ao:
+                return (ao, [ai for ai in sorted(ai.RarInfo(),key=lambda x: x.filename) if ai.file_size > 0 and is_image_ext(ai.filename)])
+    except:
+        traceback.print_exc(file=sys.stdout)
+        raise (ValueError, "The archive is corrupt.")

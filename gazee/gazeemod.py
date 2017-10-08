@@ -123,32 +123,32 @@ class Gazeesrv(object):
         else:
             num_of_comics = self.cdb.get_all_comics_count()
 #            print("All comics count: %d" % num_of_comics)
-
+        
         num_of_pages = (num_of_comics // comics_per_page)
         if num_of_comics % comics_per_page > 0:
             num_of_pages += 1
+
+        log.debug("Comics: %d  per page: %d  num_pages: %d", num_of_comics, comics_per_page, num_of_pages)
 
         if (page_num > num_of_pages):
             page_num = 1
 
         comics = self.cdb.get_comics(7, comics_per_page, page_num,
                                      recentonly=recent)
-
-        user = cherrypy.request.login
-        user_level = self.gset.get_user_level(user)
-
-        num_comics, num_recent, bytes_str = self.cdb.get_comics_stats()
+        num_comics, num_recent, bytes_str, num_unprocessed, total_unprocsize = self.cdb.get_comics_stats()
 
         pages = self.pag(page_num, num_of_pages)
         log.info("Pages: %s", pages)
         return self.serve_template(templatename="index.html", comics=comics,
                                    num_of_pages=num_of_pages,
                                    current_page=int(page_num),
-                                   pages=pages, user_level=user_level,
+                                   pages=pages,
                                    maxwid=gazee.config.THUMB_MAXWIDTH,
                                    maxht=gazee.config.THUMB_MAXHEIGHT,
-                                   num_comics=num_comics, num_recent=num_recent,
-                                   total_bytes=bytes_str)
+                                   num_comics=num_comics,
+                                   num_recent=num_recent,
+                                   total_bytes=bytes_str, nup=num_unprocessed,
+                                   tunp=total_unprocsize)
 
     @cherrypy.expose
     def aindex(self, page_num=1, recent=False):
@@ -156,13 +156,13 @@ class Gazeesrv(object):
         This returns the html template that just has the pagination
         and the comic view
         """
-        log.info("Index Requested")
+        log.info("Async Index Requested")
         if not isinstance(page_num, int):
             page_num = int(page_num, 10)
 
         comics_per_page = int(gazee.config.COMICS_PER_PAGE)
 
-        if not recent:
+        if recent:
             num_of_comics = self.cdb.get_recent_comics_count(7)
         else:
             num_of_comics = self.cdb.get_all_comics_count()
@@ -173,9 +173,15 @@ class Gazeesrv(object):
         if num_of_comics % comics_per_page > 0:
             num_of_pages += 1
 
-        if page_num == 1:
+        log.debug("Requested page: %d Comics: %d  per page: %d  num_pages: %d", page_num, num_of_comics, comics_per_page, num_of_pages)
+
+        if page_num <= 1:
+            page_num = 1
             PAGE_OFFSET = 0
         else:
+            if page_num > num_of_pages:
+                log.error("Requested page #%d (page %d is last)", page_num, num_of_pages)
+                page_num = num_of_pages
             PAGE_OFFSET = comics_per_page * (page_num - 1)
 
         param = (comics_per_page, PAGE_OFFSET)
@@ -187,7 +193,7 @@ class Gazeesrv(object):
         log.info("Index Served")
 
         pages = self.pag(page_num, num_of_pages)
-        log.info("Pages: %s", pages)
+        log.info("Pages: %s,  Current page: %d", pages, page_num)
         return self.serve_template(templatename="aindex.html", comics=comics,
                                    num_of_pages=num_of_pages,
                                    current_page=int(page_num),
@@ -249,27 +255,33 @@ class Gazeesrv(object):
                                    user_level=user_level)
 
     @cherrypy.expose
-    def cover(self, id=-1):
+    def cover(self, cid=-1):
         """ Returns the cover thumbnail for comicid <id>
         """
-        if not isinstance(id, int):
-            id = int(id, 10)
-        log.debug("In /cover for id=%d", id)
+        if not isinstance(cid, int):
+            cid = int(cid, 10)
+        log.debug("In /cover for cid=%d", cid)
 
-        cpath = self.cdb.get_cache_path(id, gazee.config.THUMB_MAXWIDTH,
+        cpath = self.cdb.get_cache_path(cid, gazee.config.THUMB_MAXWIDTH,
                                         gazee.config.THUMB_MAXHEIGHT)
-        log.info("Looking for the cover %d in directory: %s" % (id, cpath))
+        log.info("Looking for the cover %d in directory: %s" % (cid, cpath))
         if os.path.exists(cpath):
             cherrypy.response.headers['Content-Type'] = 'image/jpeg'
             fsize = os.path.getsize(cpath)
-            log.debug("Cover file #%d is %d bytes.", id, fsize)
+            log.debug("Cover file #%d is %d bytes.", cid, fsize)
             with open(cpath, 'rb') as imgfd:
                 return imgfd.read()
         else:
-            log.warning("Cover %d is missing!", id)
+            log.warning("Cover %d is missing!", cid)
             self.cdb.reset_missing_covers(gazee.config.THUMB_MAXWIDTH,
                                           gazee.config.THUMB_MAXHEIGHT)
-
+    
+    @cherrypy.expose
+    def start_uncompress(self, cid):
+        log.debug("Requesting uncomprress of CID: %d" % cid)
+        sttup = self.bus.publish('db-scan-time-get', 0).pop()
+        
+    
     @cherrypy.expose
     def read_comic(self, cid=-1, ncid=-1, pcid=-1, page_num=-1):
         log.info("Reader Requested")
@@ -278,23 +290,27 @@ class Gazeesrv(object):
 
         if not cherrypy.session.loaded:
             cherrypy.session.load()
+            
         username = cherrypy.request.login
-
+        pcid, ncid, title, pages = self.cdb.get_nextprev_cids(cid, True)
+        pcid, ncid, title, pages = self.cdb.get_nextprev_cids(cid, True)
         if not isinstance(cid, int):
             cid = int(cid, 10)
-        if not isinstance(page_num, int):
-            page_num = int(page_num, 10)
-
-        pcid, ncid, title, pages = self.cdb.get_nextprev_cids(cid, True)
 
         opath = "%s/Books/%s/%d" % (gazee.config.TEMP_DIR, username, cid)
+        arg = (self.cdb.get_comic_path(cid), opath, cid, 3)
+        restup = self.bus.publish('files-uncompress', arg)
 
-        image_list = self.cdb.do_extract_book(cid, username)
-        num_pages = len(image_list)
+        if not isinstance(page_num, int):
+            page_num = int(page_num, 10)
 
         if not os.path.exists(opath):
             os.makedirs(opath, 0o755)
             image_list = []
+
+        image_list = self.cdb.do_extract_book(cid, username)
+        num_pages = len(image_list)
+
         if num_pages == 0:
             image_list = ['static/images/imgnotfound.png']
             num_pages = len(image_list)
@@ -304,20 +320,14 @@ class Gazeesrv(object):
         cookie_comic = "comicbook%d" % cid
         cookie_check = cherrypy.request.cookie
 
-        if cookie_comic not in cookie_check:
-            log.debug("Cookie Creation")
-            cookie_set = cherrypy.response.cookie
-            page_num = 1 if (page_num == -1) else page_num
-            cookie_set[cookie_comic] = page_num
-            cookie_set[cookie_comic]['path'] = '/'
-            cookie_set[cookie_comic]['max-age'] = 2419200
-            next_page = 2
-        else:
+        if cookie_comic in cookie_check:
             log.debug("Cookie Read")
             if (page_num == -1):
                 page_num = int(cookie_check[cookie_comic].value)
             log.debug("Cookie Set To %d" % page_num)
             next_page = page_num + 1
+        else:
+            page_num = 1 if (page_num == -1) else page_num
 
         now_page = "read_page?cid=%d&page_num=%d" % (cid, page_num)
         log.debug("now_page is: %s" % now_page)
@@ -396,21 +406,32 @@ class Gazeesrv(object):
     """
     @cherrypy.expose
     def load_settings(self):
+        
         res = "%sx%s" % (gazee.config.THUMB_MAXWIDTH,
                          gazee.config.THUMB_MAXHEIGHT)
+                         
+        if not hasattr(gazee.config, 'IMAGE_SCRIPT'):
+            print("No attr.")
+            gazee.config.IMAGE_SCRIPT = 1
 
         d = {'comicPath': gazee.config.COMIC_PATH,
+             'tempPath': gazee.config.TEMP_DIR,
              'scanInterval': gazee.config.COMIC_SCAN_INTERVAL,
              'perPage': gazee.config.COMICS_PER_PAGE,
              'thumbRes': res,
+             'image_script': gazee.config.IMAGE_SCRIPT,
+             'bindAddress': gazee.config.BIND_ADDRESS,
+             'bindPort': gazee.config.PORT,
              'scanInterval': gazee.config.COMIC_SCAN_INTERVAL}
         return json.dumps(d)
 
+#    @cherrypy.tools.accept(media='text/plain')
+
     @cherrypy.expose
-    @cherrypy.tools.accept(media='text/plain')
-    def save_settings(self, cpinput=None, nppinput=None, csiinput=None,
-                      thumbsel=None, ssslKey=None, ssslCert=None,
-                      smylarPath=None, postproc=0, sport=4242):
+    def save_settings(self, cpinput=None, tpinput=None, nppinput=None,
+                      csiinput=None, thumbsel=None, ssslKey=None,
+                      ssslCert=None, smylarPath=None, postproc=0,
+                      portinput=4242, bindaddrsel=1):
         """ Set these here as they'll be used to assign the default values of
         the method arguments to the current values if they aren't updated when
         the method is called.
@@ -418,16 +439,20 @@ class Gazeesrv(object):
         self.gcfg.configRead()
 
         wid, ht = thumbsel.split('x')
+        
+        baval = "0.0.0.0" if (bindaddrsel == 2) else "127.0.0.1"
 
         newvals = {'GLOBAL':
-                   {'port': str(sport), 'comic_path': cpinput,
+                   {'port': str(portinput), 'comic_path': cpinput,
                     'comics_per_page': nppinput,
                     'comic_scan_interval': csiinput,
                     'thumb_maxwidth': wid,
                     'thumb_maxheight': ht,
+                    'image_script': str(postproc),
                     'mylar_db': smylarPath,
                     'ssl_key': ssslKey,
-                    'ssl_cert': ssslCert}}
+                    'ssl_cert': ssslCert,
+                    'bind_address': baval}}
 
         self.gcfg.updateCfg(newvals)
         log.info("Settings Saved")
@@ -451,26 +476,40 @@ class Gazeesrv(object):
         return '''<html><head><meta http-equiv="refresh" content="1;URL='/get_scantime'" /></head></html>'''
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def changePassword(self, password):
         user = cherrypy.request.login
-        self.gset.change_pass(user, password)
+        rv = self.gset.change_pass(user, password)
         log.info("Password Changed")
-        return
+        return {'success': True, 'msg': 'Password was changed.'}
 
     @cherrypy.expose
+    @cherrypy.tools.json_out()
     def newUser(self, username, password, usertype):
-        self.gset.add_user(username, password, usertype)
-        log.info("New User Added")
-        return
+        level = self.get_user_level(cherrypy.request.login)
+        if level is None or level == 'user':
+            return {'success': False, 'msg': 'You do not have access to this operation.'}
+        
+        rv = self.gset.add_user(username, password, usertype)
+        log.info("New User %s (%s) added", username, usertype)
+        return rv
 
     @cherrypy.expose
     def delUser(self, username):
-        self.gset.del_user(username)
+        level = self.get_user_level(cherrypy.request.login)
+        if level is None or level == 'user':
+            return {'success': False, 'msg': 'You do not have access to this operation.'}
+
+        rv = self.gset.del_user(username)
         log.info("User Deleted")
         return
 
     @cherrypy.expose
     def shutdown(self):
+        level = self.get_user_level(cherrypy.request.login)
+        if level is None or level == 'user':
+            return {'success': False, 'msg': 'You do not have access to this operation.'}
+    
         cherrypy.engine.exit()
         threading.Timer(1, lambda: os._exit(0)).start()
         log.info('Gazee is shutting down...')
@@ -478,6 +517,9 @@ class Gazeesrv(object):
 
     @cherrypy.expose
     def restart(self):
+        level = self.get_user_level(cherrypy.request.login)
+        if level is None or level == 'user':
+            return {'success': False, 'msg': 'You do not have access to this operation.'}
         cherrypy.engine.exit()
 #        popen_list = [sys.executable, gazee.FULL_PATH]
         popen_list = gazee.ARGS
@@ -489,6 +531,9 @@ class Gazeesrv(object):
 
     @cherrypy.expose
     def updateGazee(self):
+        level = self.get_user_level(cherrypy.request.login)
+        if level is None or level == 'user':
+            return {'success': False, 'msg': 'You do not have access to this operation.'}
         log.info('Gazee is restarting to apply update.')
         self.restart()
         return

@@ -29,6 +29,7 @@ class gcfg(object):
                 'comics_per_page': '15',
                 'thumb_maxwidth': '300',
                 'thumb_maxheight': '400',
+                'image_script': '0',
                 'mylar_db': '',
                 'ssl_key': '',
                 'ssl_cert': '',
@@ -133,7 +134,8 @@ class gcfg(object):
             cfile = os.path.join(self.datapath, 'app.ini')
             self.cfg['GLOBAL'] = {}
             self.cfg['DEFAULT'] = self.defaults
-            self.cfg.set('DEFAULT', 'data_dir', self.datapath)
+            self.cfg.set('DEFAULT', 'data_dir', self.cfg['DEFAULT'][k])
+            self.cfg.set('DEFAULT', 'image_script', self.cfg['DEFAULT'][k])
 
             cfgfound = cfile
             self.cfgpath = cfgfound
@@ -160,7 +162,7 @@ class gcfg(object):
             vn = vn.upper()
             v = self.cfg.get('GLOBAL', vn)
 
-            if vn in ['PORT', 'COMIC_SCAN_INTERVAL',
+            if vn in ['PORT', 'COMIC_SCAN_INTERVAL', 'IMAGE_SCRIPT',
                       'COMICS_PER_PAGE', 'THUMB_MAXWIDTH', 'THUMB_MAXHEIGHT']:
                 if v == '':
                     v = self.cfg.get('DEFAULT', vn)
@@ -210,15 +212,17 @@ class gcfg(object):
 
         self.cfgpath = os.path.join(self.datapath, 'app.ini')
         self.cfg.read(self.cfgpath)
+        
+        for k in self.defaults.keys():
+            if k not in self.cfg['DEFAULT']:
+                v = self.defaults[k]
+                log.info("Setting default[%s] = %s", k, v)
+                self.cfg['DEFAULT'][k] = v
+        
         if 'GLOBAL' not in self.cfg:
             log.info("Resetting GLOBAL cfg...")
             self.cfg['GLOBAL'] = {}
 
-#        log.debug('datapath:%s', str(self.datapath))
-#        print('datapath: %s' % str(self.datapath))
-#        print('logpath: %s' % str(self.logpath))
-#        print('ddbpath: %s' % str(self.dbpath))
-#        print('sessionsbpath: %s' % str(self.sessionspath))
         self.cfg.set('GLOBAL', 'data_dir', self.datapath)
 
         if 'comic_path' not in self.cfg['GLOBAL'] or self.cfg.get('GLOBAL', 'comic_path') in [None, '']:

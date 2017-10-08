@@ -20,6 +20,7 @@ from gazee.gazee_settings_db import gazee_settings
 from gazee.gazeemod import Gazeesrv
 from gazee.archive import extract_archive, extract_thumb, extract_all_images
 from gazee.versioning import current_version, latest_version
+from gazee.uncomp import UncompressThread
 from gazee.dbscan import ScanDirs
 
 FULL_PATH = ""

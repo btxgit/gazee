@@ -113,14 +113,25 @@ class gazee_settings(gazee_db):
 
         return pw
 
-    def get_user_level(self, username):
+    def get_user_level(self, username, extended=False):
+        """ gets the user's textual level (user or admin)
+        if extended is true, also return the numeric val.
+        """
         sql = '''SELECT account_type FROM users WHERE username=?'''
         params = (username, )
         atype = None
+        lvalmap = {'admin': 2, 'user': 1}
 
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             for row in conn.execute(sql, params):
                 atype = row[0]
+        
+        if extended:
+            if atype is None:
+                return None
+
+            lval = lvalmap[levelstr] if levelstr in lvalmap else None
+            return {'level_name': levelstr, 'level_val': lval}
 
         return atype
 

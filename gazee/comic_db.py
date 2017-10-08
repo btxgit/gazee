@@ -10,12 +10,12 @@
 #
 
 import os
-import logging
 import sqlite3
 import shutil
 import math
 import glob
 import time
+import logging
 from multiprocessing import Pool
 from gazee.archive import extract_thumb, extract_archive
 from gazee.db import gazee_db
@@ -109,7 +109,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         row = curs.execute(sql, param).fetchone()
         if row is None:
             return None
-
+        
+        conn.close()
         return row[0]
 
     def add_dir_entry(self, parentid, p):
@@ -120,7 +121,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         curs.execute(sql, param)
         conn.commit()
-
+        
+        conn.close()
         did = curs.lastrowid
         return did
 
@@ -131,6 +133,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         param = (dirid, )
 
         books = curs.execute(sql, param).fetchall()
+        
+        conn.close()
         return books
 
     def clean_out_tempspace(self, cdir, maxkeep):
@@ -212,7 +216,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
             sql = '''DELETE FROM all_comics WHERE (dirid=?)'''
             conn.executemany(sql, delcl)
             conn.commit()
-
+        
+        conn.close()
         return
 
     def get_cache_path(self, cid, twid=-1, tht=-1, forceproc=0):
@@ -310,6 +315,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         if (num_fn_added > 0):
             log.info("Added %d comics" % num_fn_added)
+            
+        con.close()
 
     def update_comic_image(self, cid, val, width, height):
 
@@ -325,9 +332,9 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
     def update_comic_meta(self, cid, num_pages, series, issue):
         sql = '''UPDATE all_comics SET name=?,issue=?,pages=? WHERE comicid=?;'''
         param = (series, issue, num_pages, cid)
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        con.execute(sql, param)
-        con.commit()
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            con.execute(sql, param)
+            con.commit()
 
     def get_comic_path(self, cid):
         sql = '''SELECT comicid, d.full_dir_path || '/' || c.filename as fullpath FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) WHERE (c.comicid=?)'''
@@ -349,14 +356,14 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         sql = '''SELECT c.comicid, d.full_dir_path || '/' || c.filename as fullpath FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) WHERE (c.image is null) LIMIT ?'''
         cid = fullpath = None
 
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = con.cursor()
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            curs = con.cursor()
 
-        rv = []
+            rv = []
 
-        for row in curs.execute(sql, (batchsize, )):
-            cid, fullpath = row
-            rv.append((cid, fullpath))
+            for row in curs.execute(sql, (batchsize, )):
+                cid, fullpath = row
+                rv.append((cid, fullpath))
 #        if cid is not None:
 #            self.update_comic_image(cid, '', 0, 0)
 
@@ -364,9 +371,9 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
     def reset_unprocessed_thumbs(self):
         sql = '''UPDATE all_comics SET image=null WHERE image=''; '''
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        con.execute(sql)
-        con.commit()
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            con.execute(sql)
+            con.commit()
 
     def do_thumb_job(self):
         created = 0
@@ -405,7 +412,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                     opath = self.get_cache_path(cid, rx, ry, fprc)
                     tl.append((rx, ry, opath))
 
-                param = (comicpath, cid, tl)
+                param = (comicpath, cid, tl, 1)
                 params.append(param)
 
             jobs_pending = len(params)
@@ -415,6 +422,10 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
             jobs_pending = 0
 
             for edict in results:
+                if edict is None:
+                    log.error("Task returned error.");
+                    continue
+
                 cid = edict['cid']
                 if 'error' in edict and edict['error']:
                     log.error("CID: %s returned the error: %s.", cid, edict['error'])
@@ -535,67 +546,66 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         cpath = gazee.config.COMIC_PATH
         cpath = '/Volumes/6TB/Comics'
         retl = []
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        cids = []
-        rnum = 0
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            cids = []
+            rnum = 0
 
-        log.debug("Executing SQL: %s", sql)
-        for row in con.execute(sql, t):
-            cid, name, img, issue, vol, summary, fullpath, adddate, filesize, pages, pubname = row
+            log.debug("Executing SQL: %s", sql)
+            for row in con.execute(sql, t):
+                cid, name, img, issue, vol, summary, fullpath, adddate, filesize, pages, pubname = row
 
-#            if summary is not None and '\\n' in summary:
-#                print(summary)
-            cids.append(cid)
-            rnum += 1
-            if (rnum == 1 or rnum == limit):
-                continue
-            relpath = os.path.relpath(fullpath, cpath)
-            if issue is not None and issue != '':
-                if isinstance(issue, int) or isinstance(issue, float) or issue[0].isdigit():
-                    issue = '#%s' % issue
-            else:
-                issue = ''
+                cids.append(cid)
+                rnum += 1
+                if (rnum == 1 or rnum == limit):
+                    continue
+                relpath = os.path.relpath(fullpath, cpath)
+                if issue is not None and issue != '':
+                    if isinstance(issue, int) or isinstance(issue, float) or issue[0].isdigit():
+                        issue = '#%s' % issue
+                else:
+                    issue = ''
 
-            tsize = sizestr(filesize, 2)
+                tsize = sizestr(filesize, 2)
 
-            if pubname is None:
-                pubname = "?"
+                if pubname is None:
+                    pubname = "?"
 
-            retl.append({'Key': cid, 'ComicName': name, 'ComicImage': img,
-                         'ComicIssue': issue, 'ComicVolume': vol,
-                         'ComicSummary': summary, 'ComicPath': fullpath,
-                         'RelPath': relpath, 'DateAdded': adddate,
-                         'Size': tsize, 'Pages': pages,
-                         'PubName': pubname, 'PrevCID': 0, 'NextCID': 0})
+                retl.append({'Key': cid, 'ComicName': name, 'ComicImage': img,
+                             'ComicIssue': issue, 'ComicVolume': vol,
+                             'ComicSummary': summary, 'ComicPath': fullpath,
+                             'RelPath': relpath, 'DateAdded': adddate,
+                             'Size': tsize, 'Pages': pages,
+                             'PubName': pubname, 'PrevCID': 0, 'NextCID': 0})
 
-        perpl = len(retl)
-        for i in range(perpl):
-            retl[i]['PrevCID'] = cids[i]
-            if (i + 2 > perpl):
-                retl[i]['NextCID'] = 0
-            else:
-                retl[i]['NextCID'] = cids[i + 2]
-        log.debug(retl)
+            perpl = len(retl)
+            for i in range(perpl):
+                retl[i]['PrevCID'] = cids[i]
+                if (i + 2 > perpl):
+                    retl[i]['NextCID'] = 0
+                else:
+                    retl[i]['NextCID'] = cids[i + 2]
+            log.debug(retl)
         return retl
 
     def get_recent_comics_count(self, days):
         sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = con.cursor()
-
-        row = curs.execute(sql).fetchone()
+        
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            row = con.execute(sql).fetchone()
+        
         return row[0]
 
     def get_all_comics_count(self):
         sql = '''SELECT COUNT(*) FROM all_comics;'''
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        row = con.execute(sql).fetchone()
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            row = con.execute(sql).fetchone()
         return row[0]
 
     def get_unprocessed_comics_count(self):
         sql = '''SELECT COUNT(*) FROM all_comics WHERE image is null;'''
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        row = con.execute(sql).fetchone()
+
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            row = con.execute(sql).fetchone()
         return row[0]
 
     def get_comics_stats(self, days=7):
@@ -606,6 +616,13 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         if not isinstance(num_comics, int):
             num_comics = int(num_comics, 10)
         num_comics = '{:,d}'.format(num_comics)
+        sql = '''SELECT COUNT(*), SUM(filesize) FROM all_comics WHERE image is null'''
+        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        curs = con.cursor()
+        num_unprocessed, unprocsize = con.execute(sql).fetchone()
+        if not isinstance(num_unprocessed, int):
+            num_unprocessed = int(num_unprocessed, 10)
+        num_unprocessed = '{:,d}'.format(num_unprocessed)
         sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
         row = curs.execute(sql).fetchone()
         num_recent = row[0]
@@ -613,9 +630,14 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         if not isinstance(num_recent, int):
             num_recent = int(num_recent, 10)
         num_recent = '{:,d}'.format(num_recent)
+        if unprocsize is None:
+            unprocsize = 0
         total_size_str = sizestr(sizeval)
+        total_unprocsize = sizestr(unprocsize)
+        
+        con.close()
 
-        return num_comics, num_recent, total_size_str
+        return num_comics, num_recent, total_size_str, num_unprocessed, total_unprocsize
 
 
 if __name__ == '__main__':

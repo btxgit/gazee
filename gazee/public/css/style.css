@@ -1,5 +1,5 @@
-body { overflow-x: hidden; display: inline-block; width: 100%; }
-
+body { overflow-x: hidden; display: inline-block; text-align: center; width: 100%; }
+div.helpdiv { margin: auto; padding-bottom: 35px; border: 2px solid black; border-radius: 6px; width: 650px; text-align: initial; padding: 0 10px 10px; position: relative; top: 100px; }
 #recent-header { }
 
 div.mtitle  { padding: 6px 0; }
@@ -83,7 +83,7 @@ div.sizepg {
     font-size: 7pt;
     font-family: sans-serif;
     display: flow-root;
-    margin: 5px 20px;
+    margin: 0 20px 5px;
 }
 
 img.smcover {
@@ -154,7 +154,7 @@ div.reader-overlay { display: block; width: 100%; object-fit: contain; }
 
 img.reader-page-wide { width: 100%; }
 
-img.reader-page-norm { height: 100vh; min-height: 100vh; }
+img.reader-page-norm { max-height: 100vh; max-width: 100vw; }
 
 img.reader-page-high { height: 1600px; }
 
@@ -162,5 +162,20 @@ span.uline i { font-size: 10pt; width: 20px; cursor: pointer; color: #e0e0e0; }
 
 span.uline i:hover { color: #f0f000; }
 
-img.pgone { margin-right: -2px; }
-img.pgtwo { margin-left: -2px; }
+img.pgone { margin-right: -2px; padding: 0; }
+img.pgtwo { margin-left: -2px; padding: 0; }
+
+div.row { margin-top: 5px; margin-bottom: 5px; }
+
+div.col-2.helpbutton { position: relative; left: 15px; }
+
+#roverlay { z-index: 10; position: fixed; width: 90%; background-color: transparent; left: 5%; height: 60px; }
+
+span.leftmsg, span.rightmsg { background-color: black; color: white; padding: 10px 14px; font-family: monospace; font-size: 1.7em; border-radius: 50%; border: 2px solid white; }
+span.leftmsg { float: left; }
+
+span.rightmsg { float: right; }
+
+btn { cursor: pointer; }
+
+div.coverthumb { cursor: pointer; }
