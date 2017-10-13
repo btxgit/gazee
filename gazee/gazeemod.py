@@ -102,14 +102,16 @@ class Gazeesrv(object):
         return rangeWithDots
 
     @cherrypy.expose
-    def index(self, page_num=1, recent=False):
+    def index(self, page_num=1, recent=False, async=False):
         """
         Index Page
         This returns the html template for the recents div.
         The recents div is by default the the last twenty
         comics added to the DB in the last 7 days.
         """
-
+        if page_num == '':
+            page_num = 1
+            
         if not isinstance(page_num, int):
             page_num = int(page_num, 10)
 
@@ -138,18 +140,68 @@ class Gazeesrv(object):
         num_comics, num_recent, bytes_str, num_unprocessed, total_unprocsize = self.cdb.get_comics_stats()
 
         pages = self.pag(page_num, num_of_pages)
-        log.info("Pages: %s", pages)
-        return self.serve_template(templatename="index.html", comics=comics,
-                                   num_of_pages=num_of_pages,
-                                   current_page=int(page_num),
-                                   pages=pages,
-                                   maxwid=gazee.config.THUMB_MAXWIDTH,
-                                   maxht=gazee.config.THUMB_MAXHEIGHT,
-                                   num_comics=num_comics,
-                                   num_recent=num_recent,
-                                   total_bytes=bytes_str, nup=num_unprocessed,
-                                   tunp=total_unprocsize)
+#        log.info("Pages: %s", pages)
 
+        if async:
+            return self.serve_template(templatename="aindex.html",
+                                       comics1=comics[0],
+                                       comics2=comics[1],
+                                       comics3=comics[2],
+                                       num_of_pages=num_of_pages,
+                                       current_page=int(page_num),
+                                       pages=pages,
+                                       maxht=gazee.config.THUMB_MAXHEIGHT,
+                                       maxwid=gazee.config.THUMB_MAXWIDTH)
+        else:
+            return self.serve_template(templatename="index.html",
+                                       comics1=comics[0],
+                                       comics2=comics[1], comics3=comics[2],
+                                       num_of_pages=num_of_pages,
+                                       current_page=int(page_num),
+                                       pages=pages,
+                                       maxwid=gazee.config.THUMB_MAXWIDTH,
+                                       maxht=gazee.config.THUMB_MAXHEIGHT,
+
+                                       num_comics=num_comics,
+                                       num_recent=num_recent,
+                                       total_bytes=bytes_str, nup=num_unprocessed,
+                                       tunp=total_unprocsize)
+
+    @cherrypy.expose
+    def ajindex(self, load_page=1, cur_page=1, recent=False):
+        """ Ajax + JSON Index Page
+        This returns the html in JSON form
+        """
+        log.info("Async JSON Index Requested")
+        if not isinstance(load_page, int):
+            load_page = int(load_page, 10)
+        if not isinstance(cur_page, int):
+            cur_page = int(cur_page, 10)
+            
+        if recent:
+            num_of_comics = self.cdb.get_recent_comics_count(7)
+        else:
+            num_of_comics = self.cdb.get_all_comics_count()
+        num_of_pages = 0
+        comics_per_page = int(gazee.config.COMICS_PER_PAGE)
+
+        num_of_pages = (num_of_comics // comics_per_page)
+        if num_of_comics % comics_per_page > 0:
+            num_of_pages += 1
+        
+        pages = self.pag(cur_page, num_of_pages)
+        
+
+        comics = self.cdb.get_comics_onepage(7, comics_per_page, load_page,
+                                            recentonly=recent)
+                                            
+        pstr = self.serve_template(templatename="pagination.html",
+                                   pages=pages,
+                                   current_page=cur_page,
+                                   num_of_pages=num_of_pages)
+        comics.append(pstr)
+        return json.dumps(comics)
+    
     @cherrypy.expose
     def aindex(self, page_num=1, recent=False):
         """ Ajax Index Page
@@ -157,49 +209,7 @@ class Gazeesrv(object):
         and the comic view
         """
         log.info("Async Index Requested")
-        if not isinstance(page_num, int):
-            page_num = int(page_num, 10)
-
-        comics_per_page = int(gazee.config.COMICS_PER_PAGE)
-
-        if recent:
-            num_of_comics = self.cdb.get_recent_comics_count(7)
-        else:
-            num_of_comics = self.cdb.get_all_comics_count()
-
-        num_of_pages = 0
-
-        num_of_pages = (num_of_comics // comics_per_page)
-        if num_of_comics % comics_per_page > 0:
-            num_of_pages += 1
-
-        log.debug("Requested page: %d Comics: %d  per page: %d  num_pages: %d", page_num, num_of_comics, comics_per_page, num_of_pages)
-
-        if page_num <= 1:
-            page_num = 1
-            PAGE_OFFSET = 0
-        else:
-            if page_num > num_of_pages:
-                log.error("Requested page #%d (page %d is last)", page_num, num_of_pages)
-                page_num = num_of_pages
-            PAGE_OFFSET = comics_per_page * (page_num - 1)
-
-        param = (comics_per_page, PAGE_OFFSET)
-
-        comics = self.cdb.get_comics(7, comics_per_page, page_num, recent)
-        user = cherrypy.request.login
-        user_level = self.gset.get_user_level(user)
-
-        log.info("Index Served")
-
-        pages = self.pag(page_num, num_of_pages)
-        log.info("Pages: %s,  Current page: %d", pages, page_num)
-        return self.serve_template(templatename="aindex.html", comics=comics,
-                                   num_of_pages=num_of_pages,
-                                   current_page=int(page_num),
-                                   pages=pages, user_level=user_level,
-                                   maxht=gazee.config.THUMB_MAXHEIGHT,
-                                   maxwid=gazee.config.THUMB_MAXWIDTH)
+        return self.index(page_num, recent, True)
 
     @cherrypy.expose
     def cidnav(self, cid=-1):
@@ -264,15 +274,15 @@ class Gazeesrv(object):
 
         cpath = self.cdb.get_cache_path(cid, gazee.config.THUMB_MAXWIDTH,
                                         gazee.config.THUMB_MAXHEIGHT)
-        log.info("Looking for the cover %d in directory: %s" % (cid, cpath))
+#        log.info("Looking for the cover %d in directory: %s" % (cid, cpath))
         if os.path.exists(cpath):
             cherrypy.response.headers['Content-Type'] = 'image/jpeg'
             fsize = os.path.getsize(cpath)
-            log.debug("Cover file #%d is %d bytes.", cid, fsize)
+#            log.debug("Cover file #%d is %d bytes.", cid, fsize)
             with open(cpath, 'rb') as imgfd:
                 return imgfd.read()
         else:
-            log.warning("Cover %d is missing!", cid)
+#            log.warning("Cover %d is missing!", cid)
             self.cdb.reset_missing_covers(gazee.config.THUMB_MAXWIDTH,
                                           gazee.config.THUMB_MAXHEIGHT)
     
@@ -486,7 +496,7 @@ class Gazeesrv(object):
     @cherrypy.expose
     @cherrypy.tools.json_out()
     def newUser(self, username, password, usertype):
-        level = self.get_user_level(cherrypy.request.login)
+        level = self.gset.get_user_level(cherrypy.request.login)
         if level is None or level == 'user':
             return {'success': False, 'msg': 'You do not have access to this operation.'}
         
@@ -496,7 +506,7 @@ class Gazeesrv(object):
 
     @cherrypy.expose
     def delUser(self, username):
-        level = self.get_user_level(cherrypy.request.login)
+        level = self.gset.get_user_level(cherrypy.request.login)
         if level is None or level == 'user':
             return {'success': False, 'msg': 'You do not have access to this operation.'}
 
@@ -506,7 +516,7 @@ class Gazeesrv(object):
 
     @cherrypy.expose
     def shutdown(self):
-        level = self.get_user_level(cherrypy.request.login)
+        level = self.gset.get_user_level(cherrypy.request.login)
         if level is None or level == 'user':
             return {'success': False, 'msg': 'You do not have access to this operation.'}
     
@@ -517,7 +527,7 @@ class Gazeesrv(object):
 
     @cherrypy.expose
     def restart(self):
-        level = self.get_user_level(cherrypy.request.login)
+        level = self.gset.get_user_level(cherrypy.request.login)
         if level is None or level == 'user':
             return {'success': False, 'msg': 'You do not have access to this operation.'}
         cherrypy.engine.exit()
@@ -531,7 +541,7 @@ class Gazeesrv(object):
 
     @cherrypy.expose
     def updateGazee(self):
-        level = self.get_user_level(cherrypy.request.login)
+        level = self.gset.get_user_level(cherrypy.request.login)
         if level is None or level == 'user':
             return {'success': False, 'msg': 'You do not have access to this operation.'}
         log.info('Gazee is restarting to apply update.')

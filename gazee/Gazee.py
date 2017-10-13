@@ -155,14 +155,13 @@ def main():
             else:
                 cherrypy.config.update({'log.screen': False})
                 Daemonizer(cherrypy.engine).subscribe()
-
+ 
             try:
                 PIDFile(cherrypy.engine, args.pidfile).subscribe()
             except IOError as e:
                 raise SystemExit("Unable to write PID file: %s [%d]" % (e.strerror, e.errno))
 
             gazee.ARGS = sys.argv
-            Daemonizer(cherrypy.engine).subscribe()
 
     conf = {
         '/': {
@@ -193,7 +192,7 @@ def main():
         options_dict = {
             'server.socket_port': gazee.config.PORT,
             'server.socket_host': gazee.config.BIND_ADDRESS,
-            'server.thread_pool': 30,
+            'server.thread_pool': 16,
             'log.screen': False,
             'engine.autoreload.on': False,
         }

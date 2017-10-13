@@ -6,7 +6,7 @@
     <html class="whole-page">
     <%include file="header.html" />
 
-  <body class="inner-page">
+<body class="inner-page">
   <div class="reader-whole">
     <div class="col s12 overlay-settings" style="display: none;">
     <%include file="readhelp.html" />
@@ -16,11 +16,17 @@
       <img class="pgtwo col-lg-auto" style="display: none;" src=""/>
     </div>
   </div>
-  </body>
-  <div id="roverlay" style="display: none;">
-    <span class="leftmsg badge-pill" style="background-color: black; color: white; float: left;"></span><span class="rightmsg badge-pill" style="background-color: black; float: right; color: white;"></span>
-  </div>
-  <script type="text/javascript">
+</body>
+<div id="roverlay" style="display: none;">
+    <span class="leftmsg badge-pill" style="background-color: black; color: white; float: left;"></span>
+    <span class="rightmsg badge-pill" style="background-color: black; float: right; color: white;"></span>
+</div>
+<div id="spindiv" style="display: none;">
+    <img src="/static/images/flip-book.svg">
+    <div id="spindivmsg">Please Wait... Decompressing...</div>
+</div>
+  
+<script type="text/javascript">
     tmpev = null;
     preloader = {}
     savetimeout = null;
@@ -318,6 +324,7 @@
                     page_reload = true;
                 }
                 if (page_reload) {
+                    $('#spindiv').show()
                     newurl = make_book_url(cid)
                     window.location.href = newurl;
                     return;
@@ -399,5 +406,5 @@
             });
         });
     });
-  </script>
+</script>
 </html>

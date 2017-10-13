@@ -25,7 +25,7 @@
   <div id="pagination" style="width: 100%;">
       <%include file="pagination.html" args="pages=pages, current_page=current_page, num_of_pages=num_of_pages"/>
   </div>
-  <%include file="comicrender.html" args="comics=comics, maxht=maxht, maxwid=maxwid" />
+  <%include file="comicrender.html" args="comics1=comics1, comics2=comics2, comics3=comics3, maxht=maxht, maxwid=maxwid" />
 </div>
 <footer class="page-footer" id="footer">
     <div class="container-fluid">
@@ -48,8 +48,13 @@
         </div>
     </div>
 </footer>
+<div id="spindiv" style="display: none;">
+    <img src="/static/images/flip-book.svg">
+    <div id="spindivmsg">Please Wait... Decompressing...</div>
+</div>
 	
 <script type="text/javascript">
+      pagebusy = 0
       $(document).ready(function() {
         check_hash_change()
         
@@ -90,36 +95,54 @@
            window.location.href = u;
            return;
         });
-
+        
+/*        
+        var hval = window.location.hash.substr(1)
+        if (hval === "")
+             hval = "1"
+        var u = '/aindex?page_num=' + hval
+        $('#pgcontent').load(u, function() {
+            save_last_index_page(pgnum)
+            $(document).scrollTop(0)
+            var pgnum = $('span.paglink.active').attr('pg');
+            
+            if (hval !== '')
+                hval = parseInt(hval, 10)
+            
+            if ((hval !== '') && (hval === "NaN") || (Math.abs(pgnum - hval) > 2)) {
+                check_hash_change()
+            }
+        })
+*/
         $('#pgcontent').on('click', 'span.uline i.expicon', function() {
            var ttxt = $(this).text();
            var cid = $(this).attr('cid')
            var tht = $('#outcov' + cid).height()
            if (ttxt == 'expand_less') {
                var nht = "" + tht + "px"
-               $('#cov' + cid).animate({ height: "0px"}, 300)
-               $('#outcov' + cid + ' div.ucwrap').animate({ height: nht}, 300)
+               $('#cov' + cid).velocity({ height: "0px"}, 300)
+               $('#outcov' + cid + ' div.ucwrap').velocity({ height: nht}, 300)
                $(this).text('expand_more')
            } else {
                var nht = "" + (tht - 45) + "px"
-               $('#cov' + cid).animate({ height: nht}, 300)
-               $('#outcov' + cid + ' div.ucwrap').animate({ height: "45px"}, 300)
+               $('#cov' + cid).velocity({ height: nht}, 300)
+               $('#outcov' + cid + ' div.ucwrap').velocity({ height: "45px"}, 300)
                $(this).text('expand_less')
            }
-           console.log(ttxt);
+//           console.log(ttxt);
         });
         
         $(document).on('keydown', function(e) {
             var delta = null
             
             if (e.which === 39) {
-                console.log(e);
+//                console.log(e);
                 if (e.shiftKey)
                     delta = 10
                 else
                     delta = 1
             } else if (e.which === 37) {
-                console.log(e);
+//                console.log(e);
                 if (e.shiftKey)
                     delta = -10
                 else
@@ -141,21 +164,28 @@
             e.preventDefault()
             $.post('/do_rescan', function() { console.log("Called /do_rescan.") })
         })
+        $('#restartbutton').on('click', function(e) {
+            e.preventDefault()
+            $.post('/restart', function() { console.log("Called /restart.") })
+        })
+        $('#exitbutton').on('click', function(e) {
+            e.preventDefault()
+            $.post('/shutdown', function() { console.log("Called /shutdown.") })
+        })
         
         $('#pgcontent').on('click', 'img.smcover', function() {
+            $('#spindiv').show()
             var tcid = $(this).attr('cid')
             var u = '/read_comic?cid=' + tcid
             window.location.href = u
             return
-        })
+         })
         
         $('#gazeeconf button.btn-primary').on('click', function(e) {
             e.preventDefault()
 
             var u = "/save_settings?" + $('form').serialize()
-            console.log("Loading URL: " + u)
             $.getJSON(u).done(function(data) {
-                console.log("Done saving...")
                 window.location.reload()
             })
         })
@@ -163,14 +193,17 @@
       
       function save_last_index_page(pg) {
         window.localStorage.setItem('index-lastpage', '' + pg)
-        console.log("Current last index page: " + pg)
+//        console.log("Current last index page: " + pg)
       }
       
       function check_hash_change() {
-          var hval = window.location.hash.substr(1)
+          
           var curl = $('span.paglink.active').attr('pg')
-
+          var loadpg = parseInt($('span.pagination').attr('loadpg'), 10)
+          var newpg = $('span.pagination').attr('newpg')
+          var hval = window.location.hash.substr(1)
           console.log("Saw a hash change hval: " + hval + " curl: " + curl)
+          
 
           if ((hval === '') || (hval === curl)) {
              save_last_index_page(curl)
@@ -183,19 +216,103 @@
               $(document).scrollTop(0)
               var pgnum = $('span.paglink.active').attr('pg');
               save_last_index_page(pgnum)
-              console.log("Injected url: " + u)
+//              console.log("Injected url: " + u)
           })
       }
       
+      function start_hidden_page_load(newpg, loadpg, newid) {
+          if (loadpg > 0) {
+              $.getJSON('/ajindex?load_page=' + loadpg + "&cur_page=" + newpg).done(function(data) {
+//                 var newid = $('span.pagination').attr('newid')
+                 var tpg = data.pop()
+                 $('#pagination').html(tpg)
+                 var curl = $('span.paglink.active').attr('pg')
+                 var sel = '#' + newid + ' div.outerguess'
+                 var lenog = $(sel).length
+                 console.log("The newpg is: " + newpg + " and curl is: " + curl)
+                 $(sel).each(function(i) {
+                    var oldid = '#' + $(this).attr('id')
+                    var jd = data[i]
+                    var k = data[i].Key
+                    var cname = jd.ComicName
+                    if (jd.ComicIssue != "")
+                        cname += " " + jd.ComicIssue
+                    var ct = "cov" + k
+                    var oct = "outcov" + k
+                    $(oldid + " div.coverthumb").attr('id', ct)
+                    $(oldid + " img.smcover").attr('cid', k).attr('src', '/cover?cid=' + k)
+                    $(oldid + " div.ubookpath").text(jd.RelPath)
+                    $(oldid + " div.ubooktitle").text(cname)
+                    $(oldid + " div.sizepg span.pgclass").text(jd.Pages)
+                    $(oldid + " div.sizepg span.szclass").text(jd.Size)
+                    $(oldid).attr('id', oct)
+                 })
+                 curl = $('span.paglink.active').attr('pg')
+                 console.log("Setting new hash value to: " + newpg + " with curl: "  + curl)
+                 window.location.hash = newpg
+                 pagebusy = false;
+              })
+              return;
+          } else {
+              console.log("loadpg: " + loadpg)
+              pagebusy = false;
+          }
+      }
+      
       function change_page(delta) {
+          console.log("change_page(" + delta + ")")
+          if (pagebusy) {
+              console.log("Page busy...")
+              return
+          }
+          
+          if ($('#threescreens').is(':animated')) {
+              console.log("Screens are already animated.  Aborting.")
+              return
+          }
+          pagebusy = true
+          
           var curpg = parseInt($('span.paglink.active').text(), 10)
           var lastpg = parseInt($('ul.pagination').attr('lastpg'), 10)
           var newpg = (curpg + delta)
-          
-          if ((newpg < 1) || (newpg > lastpg))
+          $('span.pagination').attr('newpg', newpg)
+          if ((newpg < 1) || (newpg > lastpg)) {
+              console.log("newpg is invalid: " + newpg)
+              pagebusy = false
               return
+          }
+          
+          var loadpage=null;
+          var newid=null;
+          
+          if (delta > 0) {
+              console.log("Handling delta of +" + delta)
+              var rem=$('#threescreens > div:first-of-type').remove();
+              newid=$(rem).attr('id');
+              $('#threescreens').append(rem)
+              var newfirst = $('#threescreens > div:first-of-type').attr('id')
+              console.log("removed element was: " + newid + " newfirst: " + newfirst)
+              loadpage = newpg + 1
+              start_hidden_page_load(newpg, loadpage, newid)              
+              $('span.pagination').attr('loadpg', loadpage)
               
-          window.location.hash = newpg
+              console.log("Load next page " + loadpage + " onto: " + newid);
+              
+              $('#threescreens').css('margin-left', '0px').velocity({'margin-left': '-100vw'}, { duration: 500 } )
+          } else {
+              console.log("handling delta of -" + delta)
+              var rem=$('#threescreens > div:last-of-type').remove();
+              newid=$(rem).attr('id');
+              loadpage = newpg - 1
+              start_hidden_page_load(newpg, loadpage, newid)
+              $('span.pagination').attr('loadpg', loadpage)
+              $('#threescreens').prepend(rem)
+              
+              console.log("Load previous page " + loadpage + " onto: " + newid);
+              
+              $('#threescreens').css('margin-left', '-200vw').velocity({'margin-left': '-100vw'}, { duration: 500 })
+          }
+          console.log("LEaving change_page().")
       }
       
       function show_config() {

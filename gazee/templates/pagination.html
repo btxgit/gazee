@@ -1,7 +1,7 @@
 <%page args="pages, current_page, num_of_pages" />
 
              <div class="pagecent">
-                 <span class="pagination" curpg="${current_page}" lastpg="${num_of_pages}">
+                 <span class="pagination" curpg="${current_page}" newpg="0" loadpg="0" newid="" lastpg="${num_of_pages}">
 % for page in pages:
   % if page == "...":
                    <span class="disabled">&hellip;</span>

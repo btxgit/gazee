@@ -30,7 +30,6 @@ class gazee_db(object):
             self.create_db()
 
         self.check_migrate_db()
-        self.c = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
 
     def get_db_name(self):
         raise Exception('Called get_db_name() on the base class!')

@@ -101,7 +101,7 @@ def extract_all_images(ao, outdir, imgpfx=''):
     return ifiles
 
 def extract_thumb(crl):
-    cp, cid, reslist, image_script = crl
+    cp, cid, reslist, image_script, iprocscr = crl
     num_pages = 0
     atype = identify_arch(cp)
     if atype is None:
@@ -149,26 +149,22 @@ def extract_thumb(crl):
             t = (cid, opath)
             continue
         
-        script = os.path.realpath('./imageborder')
-
         mkregthumb = True
         
         if image_script != 0:
-            if not os.path.exists(script):
+            if not os.path.exists(iprocscr):
                 log.error("Requested the image script, but can't find it - it must be in your current directory.")
                 return None
             else:
                 log.debug("Making a script processed thumbnail for cid: %s", cid)
-                if os.path.exists(script) and image_script != 0:
-                    args = ['/bin/bash', script, '-T', '%dx%d' % (rx,ry), natpath, opath]
+                if os.path.exists(iprocscr) and image_script != 0:
+                    args = ['/bin/bash', iprocscr, '-T', '%dx%d' % (rx,ry), natpath, opath]
                     
                     process = subprocess.Popen(args, shell=False)
                     process.wait()
                     mkregthumb = False
         else:
             log.debug("Making regular olde thumbnails.")
-        
-#        os.system('/bin/bash %s -T %dx%d "%s" "%s"' % (script, rx, ry, natpath, opath))
         
         copyim = im.copy()
         w = copyim.width

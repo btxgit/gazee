@@ -87,54 +87,48 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
     def check_migrate_db(self):
         curver = self.get_schema_version()
-        conn = sqlite3.connect(self.dbpath)
-
-        while curver < self.SCHEMA_VERSION:
-            curver += 1
-            if 1 == curver:
-                q = ''''''
-                conn.execute(q)
-                conn.commit()
-
-        conn.close()
+        with sqlite3.connect(self.dbpath) as conn:
+            while curver < self.SCHEMA_VERSION:
+                curver += 1
+                if 1 == curver:
+                    q = ''''''
+                    conn.execute(q)
+                    conn.commit()
 
         self.set_schema_version(self.SCHEMA_VERSION)
 
     def get_dirid_by_path(self, p):
         param = (os.path.normpath(p), )
         sql = '''SELECT dirid FROM all_directories WHERE full_dir_path=?'''
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = conn.cursor()
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
+            curs = conn.cursor()
 
-        row = curs.execute(sql, param).fetchone()
-        if row is None:
-            return None
-        
-        conn.close()
+            row = curs.execute(sql, param).fetchone()
+            if row is None:
+                return None
+            
         return row[0]
 
     def add_dir_entry(self, parentid, p):
         param = (parentid, os.path.normpath(p))
         sql = '''INSERT INTO all_directories(parentid, full_dir_path) VALUES (?, ?)'''
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = conn.cursor()
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
+            curs = conn.cursor()
 
-        curs.execute(sql, param)
-        conn.commit()
+            curs.execute(sql, param)
+            conn.commit()
         
-        conn.close()
         did = curs.lastrowid
         return did
 
     def get_all_books_in_dirid(self, dirid):
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = conn.cursor()
-        sql = '''SELECT comicid FROM all_comics WHERE dirid=?'''
-        param = (dirid, )
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
+            curs = conn.cursor()
+            sql = '''SELECT comicid FROM all_comics WHERE dirid=?'''
+            param = (dirid, )
 
-        books = curs.execute(sql, param).fetchall()
-        
-        conn.close()
+            books = curs.execute(sql, param).fetchall()
+            
         return books
 
     def clean_out_tempspace(self, cdir, maxkeep):
@@ -167,57 +161,55 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         deldl = []
         delcl = []
 
-        conn = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
-        curs = conn.cursor()
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
+            curs = conn.cursor()
 
-        dn = None
-        for row in curs.execute(sql):
-            did, cid, fp, image = row
+            dn = None
+            for row in curs.execute(sql):
+                did, cid, fp, image = row
 
-            fdp, fn = os.path.split(fp)
+                fdp, fn = os.path.split(fp)
 
-            if not os.path.exists(fp):
-                delcl.append((did, ))
-
-            if dn != did:
-                dn = did
-                if not os.path.exists(fdp) or not os.path.isdir(fdp):
-                    log.info('The pathname %s (dirid: %d) no longer exists.',
-                             fdp, did)
-                    deldl.append((did, ))
+                if not os.path.exists(fp):
                     delcl.append((did, ))
+
+                if dn != did:
+                    dn = did
+                    if not os.path.exists(fdp) or not os.path.isdir(fdp):
+                        log.info('The pathname %s (dirid: %d) no longer exists.',
+                                 fdp, did)
+                        deldl.append((did, ))
+                        delcl.append((did, ))
+                    else:
+                        self.dir_cache[fdp] = did
+
+                if did not in self.fn_cache:
+                    self.fn_cache[did] = {fn: cid}
                 else:
-                    self.dir_cache[fdp] = did
+                    self.fn_cache[did][fn] = cid
 
-            if did not in self.fn_cache:
-                self.fn_cache[did] = {fn: cid}
-            else:
-                self.fn_cache[did][fn] = cid
+            delthumbcl = []
 
-        curs.close()
-        delthumbcl = []
+            if len(delcl) > 0:
+                numdel = 0
+                for did in deldl:
+                    sql = '''SELECT comicid FROM all_comics WHERE dirid=?'''
+                    for row in conn.execute(sql, (did, )):
+                        cid = row[0]
+                        delthumbcl.append((cid))
+                        cachepath = self.get_cache_path(cid)
+                        for cp in glob.glob(cachepath + "/%d-*.jpg" % cid):
+                            if os.path.exists(cp):
+                                os.unlink(cp)
+                                numdel += 1
 
-        if len(delcl) > 0:
-            numdel = 0
-            for did in deldl:
-                sql = '''SELECT comicid FROM all_comics WHERE dirid=?'''
-                for row in conn.execute(sql, (did, )):
-                    cid = row[0]
-                    delthumbcl.append((cid))
-                    cachepath = self.get_cache_path(cid)
-                    for cp in glob.glob(cachepath + "/%d-*.jpg" % cid):
-                        if os.path.exists(cp):
-                            os.unlink(cp)
-                            numdel += 1
+                log.info("Deleted %d covers." % numdel)
+                sql = '''DELETE FROM all_directories WHERE (dirid=?)'''
+                conn.executemany(sql, deldl)
+                sql = '''DELETE FROM all_comics WHERE (dirid=?)'''
+                conn.executemany(sql, delcl)
+                conn.commit()
 
-            log.info("Deleted %d covers." % numdel)
-            sql = '''DELETE FROM all_directories WHERE (dirid=?)'''
-            conn.executemany(sql, deldl)
-            sql = '''DELETE FROM all_comics WHERE (dirid=?)'''
-            conn.executemany(sql, delcl)
-            conn.commit()
-        
-        conn.close()
         return
 
     def get_cache_path(self, cid, twid=-1, tht=-1, forceproc=0):
@@ -253,7 +245,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         timenow = time.time()
 
         if ((self.last_thumb_time is not None) and
-           ((self.last_thumb_time + 60) > timenow)):
+           ((self.last_thumb_time + 120) > timenow)):
             log.debug("Too soon after a thumb to reset_missing_covers()")
             return
 
@@ -279,44 +271,42 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         log.debug("Scanning comic dir: %s" % curdir)
         self.delete_stale_directory_entries()
         num_fn_added = 0
-        con = sqlite3.connect(self.dbpath, isolation_level='DEFERRED')
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            for dirpath, dirnames, filenames in os.walk(curdir, topdown=False, followlinks=True):
+                addfns = []
+                p = os.path.normpath(dirpath)
+                if p not in self.dir_cache:
+                    curdirid = self.add_dir_entry(parentid, p)
+                    self.dir_cache[p] = curdirid
+                else:
+                    curdirid = self.dir_cache[p]
 
-        for dirpath, dirnames, filenames in os.walk(curdir, topdown=False, followlinks=True):
-            addfns = []
-            p = os.path.normpath(dirpath)
-            if p not in self.dir_cache:
-                curdirid = self.add_dir_entry(parentid, p)
-                self.dir_cache[p] = curdirid
-            else:
-                curdirid = self.dir_cache[p]
+                for ttfn in filenames:
+                    if not isinstance(ttfn, str):
+                        ttfn = str(ttfn, 'utf-8')
+                    tmpfn, tmpext = os.path.splitext(ttfn)
+                    if not tmpext.lower() in ['.cbr','.cbz']:
+                        continue
 
-            for ttfn in filenames:
-                if not isinstance(ttfn, str):
-                    ttfn = str(ttfn, 'utf-8')
-                tmpfn, tmpext = os.path.splitext(ttfn)
-                if not tmpext.lower() in ['.cbr','.cbz']:
-                    continue
+                    if curdirid not in self.fn_cache:
+                        self.fn_cache[curdirid] = {}
+                    if ttfn not in self.fn_cache[curdirid]:
+                        cfn = os.path.normpath(os.path.join(p, ttfn))
+                        filebytes = os.path.getsize(cfn)
+                        addfns.append((curdirid, ttfn, filebytes))
 
-                if curdirid not in self.fn_cache:
-                    self.fn_cache[curdirid] = {}
-                if ttfn not in self.fn_cache[curdirid]:
-                    cfn = os.path.normpath(os.path.join(p, ttfn))
-                    filebytes = os.path.getsize(cfn)
-                    addfns.append((curdirid, ttfn, filebytes))
+                if len(addfns) > 0:
+                    num_fn_added += len(addfns)
+                    sql = '''INSERT INTO all_comics(dirid, filename, filesize) VALUES (?, ?, ?)'''
+                    con.executemany(sql, addfns)
+                    con.commit()
+                    log.info("Added %d new comic files.", len(addfns))
 
-            if len(addfns) > 0:
-                num_fn_added += len(addfns)
-                sql = '''INSERT INTO all_comics(dirid, filename, filesize) VALUES (?, ?, ?)'''
-                con.executemany(sql, addfns)
-                con.commit()
-                log.info("Added %d new comic files.", len(addfns))
+                parentid = curdirid
 
-            parentid = curdirid
-
-        if (num_fn_added > 0):
-            log.info("Added %d comics" % num_fn_added)
-            
-        con.close()
+            if (num_fn_added > 0):
+                log.info("Added %d comics" % num_fn_added)
+                
 
     def update_comic_image(self, cid, val, width, height):
 
@@ -402,7 +392,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                     break
 
                 tl = []
-
+                iproc = os.path.join(os.path.dirname(gazee.__file__), 'imgproc')
+                iprocscr = os.path.join(iproc, "imageborder")
                 thumbsize = (gazee.config.THUMB_MAXWIDTH,
                              gazee.config.THUMB_MAXHEIGHT)
 
@@ -412,7 +403,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                     opath = self.get_cache_path(cid, rx, ry, fprc)
                     tl.append((rx, ry, opath))
 
-                param = (comicpath, cid, tl, 1)
+                param = (comicpath, cid, tl, 1, iprocscr)
                 params.append(param)
 
             jobs_pending = len(params)
@@ -530,34 +521,35 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                 return (res1, res2, titlestr, pages)
 
         return (None, None, None, None)
-
-    def get_comics(self, days, perpage, pagenum, recentonly=True):
+    
+    def get_comics_onepage(self, days, perpage, pagenum, recentonly=False):
         limit = perpage + 2
         baseoff = ((pagenum - 1) * perpage) - 1
-
         if recentonly:
             sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate ORDER BY adddate DESC LIMIT ? OFFSET ?''' % days
         else:
             sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) ORDER BY c.filename ASC LIMIT ? OFFSET ?'''
 
-# p.name /  left JOIN publishers p ON (c.publisher=p.pubid)
-
         t = (limit, baseoff)
         cpath = gazee.config.COMIC_PATH
-        cpath = '/Volumes/6TB/Comics'
-        retl = []
+        retl = [ ]
+
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
             cids = []
             rnum = 0
-
+            lastcid = None
             log.debug("Executing SQL: %s", sql)
             for row in con.execute(sql, t):
+                rowind = (rnum - 1)
                 cid, name, img, issue, vol, summary, fullpath, adddate, filesize, pages, pubname = row
 
                 cids.append(cid)
                 rnum += 1
                 if (rnum == 1 or rnum == limit):
+                    lastcid = cid
+                    lastind = None
                     continue
+
                 relpath = os.path.relpath(fullpath, cpath)
                 if issue is not None and issue != '':
                     if isinstance(issue, int) or isinstance(issue, float) or issue[0].isdigit():
@@ -570,22 +562,129 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                 if pubname is None:
                     pubname = "?"
 
-                retl.append({'Key': cid, 'ComicName': name, 'ComicImage': img,
-                             'ComicIssue': issue, 'ComicVolume': vol,
-                             'ComicSummary': summary, 'ComicPath': fullpath,
-                             'RelPath': relpath, 'DateAdded': adddate,
-                             'Size': tsize, 'Pages': pages,
-                             'PubName': pubname, 'PrevCID': 0, 'NextCID': 0})
-
-            perpl = len(retl)
-            for i in range(perpl):
-                retl[i]['PrevCID'] = cids[i]
-                if (i + 2 > perpl):
-                    retl[i]['NextCID'] = 0
-                else:
-                    retl[i]['NextCID'] = cids[i + 2]
-            log.debug(retl)
+                retl.append({'Key': cid, 'ComicName': name,
+                             'ComicImage': img,
+                             'ComicIssue': issue,
+                             'ComicVolume': vol,
+                             'ComicSummary': summary,
+                             'ComicPath': fullpath,
+                             'RelPath': relpath,
+                             'DateAdded': adddate,
+                             'Size': tsize,
+                             'Pages': pages,
+                             'PubName': pubname,
+                             'PrevCID': lastcid,
+                             'NextCID': 0})
+                             
+                if lastind is not None:
+                    log.debug("Setting retl[%d]['NextCID']", lastind)
+                    retl[lastind]['NextCID'] = cid
+                lastcid = cid
+                lastind = rowind
         return retl
+    
+    def get_comics(self, days, perpage, pagenum, recentonly=False):
+        limit = (perpage * 2) + 2
+        baseoff = ((pagenum - 1) * perpage) - 1
+        startpage = 2
+        endpage = 3
+        
+        if (pagenum > 1):
+            limit += perpage
+            baseoff -= perpage
+            startpage = 1
+        
+        baseoff = ((pagenum - 1) * perpage) - 1
+
+        if recentonly:
+            sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate ORDER BY adddate DESC LIMIT ? OFFSET ?''' % days
+        else:
+            sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) ORDER BY c.filename ASC LIMIT ? OFFSET ?'''
+
+# p.name /  left JOIN publishers p ON (c.publisher=p.pubid)
+
+        t = (limit, baseoff)
+        cpath = gazee.config.COMIC_PATH
+        comicsretl = [ [], [], [] ]
+        minpgadd = 0
+        if (startpage > 1):
+            minpgadd = 1
+            tnum = 10;
+            for i in range(perpage):
+                tnum += 1
+                comicsretl[0].append({'Key': "99999" + str(tnum), 
+                                           'ComicName': "",
+                                           'ComicImage': "",
+                                           'ComicIssue': "",
+                                           'ComicVolume': "",
+                                           'ComicSummary': "",
+                                           'ComicPath': "",
+                                           'RelPath': "",
+                                           'DateAdded':"",
+                                           'Size': "",
+                                           'Pages': "",
+                                           'PubName': "",
+                                           'IndexPage': 0,
+                                           'PrevCID': 0,
+                                           'NextCID': 0})
+                
+            
+        
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            cids = []
+            rnum = 0
+            lastcid = None
+            log.debug("Executing SQL: %s", sql)
+            for row in con.execute(sql, t):
+                rowind = ((rnum - 1) // perpage)
+                rowind += minpgadd;
+                cid, name, img, issue, vol, summary, fullpath, adddate, filesize, pages, pubname = row
+
+                cids.append(cid)
+                rnum += 1
+                if (rnum == 1 or rnum == limit):
+                    lastcid = cid
+                    lastind = rowind
+                    lastpos = None
+                    continue
+                relpath = os.path.relpath(fullpath, cpath)
+                if issue is not None and issue != '':
+                    if isinstance(issue, int) or isinstance(issue, float) or issue[0].isdigit():
+                        issue = '#%s' % issue
+                else:
+                    issue = ''
+
+                tsize = sizestr(filesize, 2)
+
+                if pubname is None:
+                    pubname = "?"
+                    
+                comicsretl[rowind].append({'Key': cid, 
+                                           'ComicName': name,
+                                           'ComicImage': img,
+                                           'ComicIssue': issue,
+                                           'ComicVolume': vol,
+                                           'ComicSummary': summary,
+                                           'ComicPath': fullpath,
+                                           'RelPath': relpath,
+                                           'DateAdded': adddate,
+                                           'Size': tsize,
+                                           'Pages': pages,
+                                           'PubName': pubname,
+                                           'IndexPage': rowind,
+                                           'PrevCID': lastcid,
+                                           'NextCID': 0})
+                                           
+                if lastpos is not None:
+                    log.debug("Setting comicsretl[%d][%d]['NextCID']", lastind, lastpos)
+                    comicsretl[lastind][lastpos]['NextCID'] = cid
+                lastcid = cid
+                lastind = rowind
+                lastpos = len(comicsretl[rowind]) - 1
+                
+#            log.debug(retl)
+        log.debug(comicsretl)
+        return comicsretl
 
     def get_recent_comics_count(self, days):
         sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
