@@ -134,8 +134,8 @@ class gcfg(object):
             cfile = os.path.join(self.datapath, 'app.ini')
             self.cfg['GLOBAL'] = {}
             self.cfg['DEFAULT'] = self.defaults
-            self.cfg.set('DEFAULT', 'data_dir', self.cfg['DEFAULT'][k])
-            self.cfg.set('DEFAULT', 'image_script', self.cfg['DEFAULT'][k])
+            self.cfg.set('DEFAULT', 'data_dir', self.datapath)
+            self.cfg.set('DEFAULT', 'image_script', self.defaults['image_script'])
 
             cfgfound = cfile
             self.cfgpath = cfgfound

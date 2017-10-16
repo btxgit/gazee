@@ -39,7 +39,6 @@ def get_password(username):
     params = (username, )
 
     pw = None
-    dbapth = os.path.join(gazee.config.DB_DIR, "gazee_settings.db")
 
     with sqlite3.connect(dbpath) as conn:
         for row in conn.execute(sql, params):
@@ -56,7 +55,7 @@ class gazee_settings(gazee_db):
         self.init_db()
         if not self.have_admin_account():
             log.error("got error back from have_admin_account()!")
-
+            sys.exit(1)
 
     def get_db_name(self):
         return 'gazee_settings.db'
@@ -229,6 +228,8 @@ class gazee_settings(gazee_db):
         if not self.prompt_account_details(account_type='admin'):
             log.error("Failed to run prompt_account_details.")
             return False
+            
+        return True
 
 if __name__ == '__main__':
     d = gazee_settings()
