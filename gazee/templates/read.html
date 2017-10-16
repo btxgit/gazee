@@ -11,7 +11,7 @@
     <div class="col s12 overlay-settings" style="display: none;">
     <%include file="readhelp.html" />
     </div>
-    <div class="reader-overlay" cid="${cid}" nop="${nop}" prevcid="${prevcid}" nextcid="${nextcid}" cpage="${current_page}" step="1">
+    <div class="reader-overlay" cid="${cid}" nop="${nop}" prevcid="0" nextcid="0" cpage="${current_page}" step="1">
       <img class="pgone col-lg-auto" src="${now_page}"/>
       <img class="pgtwo col-lg-auto" style="display: none;" src=""/>
     </div>
@@ -233,7 +233,6 @@
         
         $('div.reader-overlay img.pgone').attr('class', cls + " pgone")
         $('div.reader-overlay img.pgtwo').attr('class', cls + " pgtwo")
-
     }
     
     $(function() {

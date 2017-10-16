@@ -114,8 +114,9 @@ class Gazeesrv(object):
             
         if not isinstance(page_num, int):
             page_num = int(page_num, 10)
-
-        log.info("Index Requested")
+        
+        if not async:
+            log.info("Index Requested")
 
         comics_per_page = int(gazee.config.COMICS_PER_PAGE)
 
@@ -208,7 +209,7 @@ class Gazeesrv(object):
         This returns the html template that just has the pagination
         and the comic view
         """
-        log.info("Async Index Requested")
+        log.info("Async Index Requested: %s", page_num)
         return self.index(page_num, recent, True)
 
     @cherrypy.expose
@@ -270,6 +271,10 @@ class Gazeesrv(object):
         """
         if not isinstance(cid, int):
             cid = int(cid, 10)
+
+        if (cid >= 9999910):
+            return
+            
         log.debug("In /cover for cid=%d", cid)
 
         cpath = self.cdb.get_cache_path(cid, gazee.config.THUMB_MAXWIDTH,

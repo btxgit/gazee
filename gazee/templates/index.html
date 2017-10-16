@@ -221,7 +221,7 @@
       }
       
       function start_hidden_page_load(newpg, loadpg, newid) {
-          if (loadpg > 0) {
+          if (loadpg >= 0) {
               $.getJSON('/ajindex?load_page=' + loadpg + "&cur_page=" + newpg).done(function(data) {
 //                 var newid = $('span.pagination').attr('newid')
                  var tpg = data.pop()
@@ -234,18 +234,31 @@
                     var oldid = '#' + $(this).attr('id')
                     var jd = data[i]
                     var k = data[i].Key
+                    console.log("Oldid: " + oldid + "  k: " + k)
                     var cname = jd.ComicName
+                    var dstyle = jd.DispStyle
+                    if (dstyle === '') {
+                        dval = ''
+                    } else {
+                        dval = 'none'
+                    }
+                    
                     if (jd.ComicIssue != "")
                         cname += " " + jd.ComicIssue
                     var ct = "cov" + k
                     var oct = "outcov" + k
-                    $(oldid + " div.coverthumb").attr('id', ct)
                     $(oldid + " img.smcover").attr('cid', k).attr('src', '/cover?cid=' + k)
+                    $(oldid + " i.dlicon").attr('cid', k)
+                    $(oldid + " i.expicon").attr('cid', k)
+                    $(oldid + " div.ubookpub").text("Publisher: " + jd.PubName)
                     $(oldid + " div.ubookpath").text(jd.RelPath)
                     $(oldid + " div.ubooktitle").text(cname)
-                    $(oldid + " div.sizepg span.pgclass").text(jd.Pages)
-                    $(oldid + " div.sizepg span.szclass").text(jd.Size)
+                    $(oldid + " div.sizepg span.pgclass").text("Pages: " + jd.Pages)
+                    $(oldid + " div.sizepg span.szclass").text("Size: " + jd.Size)
+//                    console.log("About to set " + oldid + " div.coverthumb -> id = " + ct)
+                    $(oldid + " div.coverthumb").attr('id', ct)
                     $(oldid).attr('id', oct)
+                    $('#' + oct).css('display', dval)
                  })
                  curl = $('span.paglink.active').attr('pg')
                  console.log("Setting new hash value to: " + newpg + " with curl: "  + curl)
@@ -266,7 +279,7 @@
               return
           }
           
-          if ($('#threescreens').is(':animated')) {
+          if ($('#threescreens').is('.velocity-animating')) {
               console.log("Screens are already animated.  Aborting.")
               return
           }
@@ -293,14 +306,14 @@
               var newfirst = $('#threescreens > div:first-of-type').attr('id')
               console.log("removed element was: " + newid + " newfirst: " + newfirst)
               loadpage = newpg + 1
-              start_hidden_page_load(newpg, loadpage, newid)              
+              start_hidden_page_load(newpg, loadpage, newid)
               $('span.pagination').attr('loadpg', loadpage)
               
               console.log("Load next page " + loadpage + " onto: " + newid);
               
               $('#threescreens').css('margin-left', '0px').velocity({'margin-left': '-100vw'}, { duration: 500 } )
           } else {
-              console.log("handling delta of -" + delta)
+              console.log("handling delta of " + delta)
               var rem=$('#threescreens > div:last-of-type').remove();
               newid=$(rem).attr('id');
               loadpage = newpg - 1

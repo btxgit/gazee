@@ -523,8 +523,16 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         return (None, None, None, None)
     
     def get_comics_onepage(self, days, perpage, pagenum, recentonly=False):
-        limit = perpage + 2
-        baseoff = ((pagenum - 1) * perpage) - 1
+        limit = perpage
+        baseoff = ((pagenum - 1) * perpage)
+        if baseoff < 0:
+            skipquery = True
+        else:
+            skipquery = False
+    
+        retl = [ ]
+        tnum = 10;
+            
         if recentonly:
             sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate ORDER BY adddate DESC LIMIT ? OFFSET ?''' % days
         else:
@@ -532,32 +540,30 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         t = (limit, baseoff)
         cpath = gazee.config.COMIC_PATH
-        retl = [ ]
 
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
-            cids = []
-            rnum = 0
-            lastcid = None
-            log.debug("Executing SQL: %s", sql)
-            for row in con.execute(sql, t):
-                rowind = (rnum - 1)
+            if not skipquery:
+                log.info("Executing SQL: %s  with t: %s", sql, str(t))
+                rows = con.execute(sql, t).fetchall()
+            else:
+                rows = []
+            nrows = len(rows)
+            addrecs = limit - nrows
+            for ti in range(addrecs):
+                cid = "99999" + str(tnum)
+                rv = (cid, "", "", "", "", "", "", "", "", "", "")
+                rows.append(rv)
+            for row in rows:
                 cid, name, img, issue, vol, summary, fullpath, adddate, filesize, pages, pubname = row
-
-                cids.append(cid)
-                rnum += 1
-                if (rnum == 1 or rnum == limit):
-                    lastcid = cid
-                    lastind = None
-                    continue
-
-                relpath = os.path.relpath(fullpath, cpath)
+                dstyle = "display: none;" if filesize == "" else ""
+                relpath = os.path.relpath(fullpath, cpath) if fullpath != "" else ""
                 if issue is not None and issue != '':
                     if isinstance(issue, int) or isinstance(issue, float) or issue[0].isdigit():
                         issue = '#%s' % issue
                 else:
                     issue = ''
-
-                tsize = sizestr(filesize, 2)
+                
+                tsize = sizestr(filesize, 2) if filesize != '' else ''
 
                 if pubname is None:
                     pubname = "?"
@@ -572,29 +578,28 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                              'DateAdded': adddate,
                              'Size': tsize,
                              'Pages': pages,
-                             'PubName': pubname,
-                             'PrevCID': lastcid,
-                             'NextCID': 0})
-                             
-                if lastind is not None:
-                    log.debug("Setting retl[%d]['NextCID']", lastind)
-                    retl[lastind]['NextCID'] = cid
-                lastcid = cid
-                lastind = rowind
+                             'DispStyle': dstyle,
+                             'PubName': pubname})
         return retl
     
     def get_comics(self, days, perpage, pagenum, recentonly=False):
-        limit = (perpage * 2) + 2
-        baseoff = ((pagenum - 1) * perpage) - 1
         startpage = 2
         endpage = 3
+        comicsretl = [ [], [], [] ]
+        tnum = 10;
         
         if (pagenum > 1):
-            limit += perpage
-            baseoff -= perpage
+            limit = (perpage * 3)
+            baseoff = ((pagenum - 2) * perpage)
+            if baseoff < 0:
+                limit += baseoff
+                baseoff = 0
             startpage = 1
+        else:
+            baseoff = 0
+            limit = (perpage * 2)
         
-        baseoff = ((pagenum - 1) * perpage) - 1
+#        baseoff = ((pagenum - 1) * perpage) - 1
 
         if recentonly:
             sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate ORDER BY adddate DESC LIMIT ? OFFSET ?''' % days
@@ -605,11 +610,9 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         t = (limit, baseoff)
         cpath = gazee.config.COMIC_PATH
-        comicsretl = [ [], [], [] ]
         minpgadd = 0
         if (startpage > 1):
             minpgadd = 1
-            tnum = 10;
             for i in range(perpage):
                 tnum += 1
                 comicsretl[0].append({'Key': "99999" + str(tnum), 
@@ -624,37 +627,35 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                                            'Size': "",
                                            'Pages': "",
                                            'PubName': "",
-                                           'IndexPage': 0,
-                                           'PrevCID': 0,
-                                           'NextCID': 0})
+                                           'DispStyle': 'display: none;',
+                                           'IndexPage': 0})
                 
             
         
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
-            cids = []
             rnum = 0
-            lastcid = None
-            log.debug("Executing SQL: %s", sql)
-            for row in con.execute(sql, t):
+            log.info("Executing SQL: %s  with t: %s", sql, str(t))
+            rows = con.execute(sql, t).fetchall()
+            nrows = len(rows)
+            addrecs = limit - nrows
+            for ti in range(addrecs):
+                cid = "99999" + str(tnum)
+                rv = (cid, "", "", "", "", "", "", "", "", "", "")
+                rows.append(rv)
+            for row in rows:
+                rnum += 1
                 rowind = ((rnum - 1) // perpage)
                 rowind += minpgadd;
                 cid, name, img, issue, vol, summary, fullpath, adddate, filesize, pages, pubname = row
-
-                cids.append(cid)
-                rnum += 1
-                if (rnum == 1 or rnum == limit):
-                    lastcid = cid
-                    lastind = rowind
-                    lastpos = None
-                    continue
-                relpath = os.path.relpath(fullpath, cpath)
+                dstyle = "display: none;" if filesize == "" else ""
+                relpath = os.path.relpath(fullpath, cpath) if fullpath != "" else ""
                 if issue is not None and issue != '':
                     if isinstance(issue, int) or isinstance(issue, float) or issue[0].isdigit():
                         issue = '#%s' % issue
                 else:
                     issue = ''
 
-                tsize = sizestr(filesize, 2)
+                tsize = sizestr(filesize, 2) if filesize != '' else ''
 
                 if pubname is None:
                     pubname = "?"
@@ -671,18 +672,8 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                                            'Size': tsize,
                                            'Pages': pages,
                                            'PubName': pubname,
-                                           'IndexPage': rowind,
-                                           'PrevCID': lastcid,
-                                           'NextCID': 0})
-                                           
-                if lastpos is not None:
-                    log.debug("Setting comicsretl[%d][%d]['NextCID']", lastind, lastpos)
-                    comicsretl[lastind][lastpos]['NextCID'] = cid
-                lastcid = cid
-                lastind = rowind
-                lastpos = len(comicsretl[rowind]) - 1
-                
-#            log.debug(retl)
+                                           'DispStyle': dstyle,
+                                           'IndexPage': rowind})
         log.debug(comicsretl)
         return comicsretl
 

@@ -4,5 +4,6 @@ include gazee/templates/*html
 include gazee/public/css/*css
 include gazee/public/js/*js
 include gazee/public/images/*png
+include gazee/public/images/*svg
 include gazee/public/images/*ico
 include gazee/*.py
