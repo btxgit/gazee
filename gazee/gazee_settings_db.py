@@ -191,9 +191,15 @@ class gazee_settings(gazee_db):
 
     def num_account_type(self, account_type='admin'):
         param = (account_type, )
+
+        num = 0
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as conn:
             for row in conn.execute('''SELECT COUNT(*) FROM users WHERE account_type=?''', param):
-                return row[0]
+                num = row[0]
+                if not isinstance(num, int):
+                    num = int(num, 10)
+                    
+        return num
 
     def prompt_account_details(self, account_type='admin'):
         while True:
@@ -216,6 +222,8 @@ class gazee_settings(gazee_db):
         return True
 
     def have_admin_account(self):
+        log.info("The settings database path is: %s", self.dbpath)
+        
         if self.num_account_type(account_type='admin') > 0:
             return True
 
