@@ -22,7 +22,7 @@ class gazee_db(object):
         pass
     
     def init_db(self):
-        if os.path.exists(self.dbpath) and os.path.getsize(self.dbpath) < (4 * 1024):
+        if os.path.exists(self.dbpath) and os.path.getsize(self.dbpath) < 1024:
             os.unlink(self.dbpath)
 
         if not os.path.exists(self.dbpath):

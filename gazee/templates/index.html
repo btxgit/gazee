@@ -55,8 +55,23 @@
 	
 <script type="text/javascript">
       pagebusy = 0
+      function grab_comic_stats() {
+          u = "/cstats"
+          $.getJSON(u).done(function(data) {
+              console.log(data)
+              hdrs = ["Total Number of Comics:", "Num. Unprocessed:", "Unprocessed Space:", "Recently Added Comics:", "Total Shared:"]
+              hstr = ""
+              for (i=0; i<5; ++i) {
+                  hstr += "<div class=\"col col-sm align-self-center\">" + hdrs[i] + " " + data[i] + "</div>"
+              }
+              $('footer div.row').html(hstr)
+          })
+          $.timeout(60000).done(function() { grab_comic_stats() });
+      }
+      
       $(document).ready(function() {
         check_hash_change()
+        $.timeout(60000).done(function() { grab_comic_stats() });
         
         $(window).on('hashchange', function() {
             check_hash_change()
@@ -253,6 +268,7 @@
                     $(oldid + " div.ubookpub").text("Publisher: " + jd.PubName)
                     $(oldid + " div.ubookpath").text(jd.RelPath)
                     $(oldid + " div.ubooktitle").text(cname)
+                    $(oldid + " div.ubooksummary").text(jd.ComicSummary)
                     $(oldid + " div.sizepg span.pgclass").text("Pages: " + jd.Pages)
                     $(oldid + " div.sizepg span.szclass").text("Size: " + jd.Size)
 //                    console.log("About to set " + oldid + " div.coverthumb -> id = " + ct)

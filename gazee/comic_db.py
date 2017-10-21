@@ -373,6 +373,9 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
             self._pct = 0.0
         else:
             self._pct = ((self._numrecs - self._pending) / self._numrecs)
+            
+        if self._pending == 0:
+            return True
 
         jobs_pending = 0
 

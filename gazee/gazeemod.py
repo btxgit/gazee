@@ -168,6 +168,7 @@ class Gazeesrv(object):
                                        total_bytes=bytes_str, nup=num_unprocessed,
                                        tunp=total_unprocsize)
 
+    
     @cherrypy.expose
     def ajindex(self, load_page=1, cur_page=1, recent=False):
         """ Ajax + JSON Index Page
@@ -211,6 +212,13 @@ class Gazeesrv(object):
         """
         log.info("Async Index Requested: %s", page_num)
         return self.index(page_num, recent, True)
+
+    @cherrypy.expose
+    def cstats(self):
+        num_comics, num_recent, bytes_str, num_unprocessed, total_unprocsize = self.cdb.get_comics_stats()
+        j = [num_comics, num_unprocessed, total_unprocsize, num_recent, bytes_str]
+#        j = {'num_comics': num_comics, 'num_recent': num_recent, 'bytes_str': bytes_str, 'num_unprocessed': num_unprocessed, 'num_unprocsize': num_unprocsize}
+        return json.dumps(j)
 
     @cherrypy.expose
     def cidnav(self, cid=-1):
