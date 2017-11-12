@@ -2,6 +2,8 @@ body { overflow-x: hidden; display: inline-block; text-align: center; width: 100
 div.helpdiv { margin: auto; padding-bottom: 35px; border: 2px solid black; border-radius: 6px; width: 650px; text-align: initial; padding: 0 10px 10px; position: relative; top: 100px; }
 #recent-header { }
 
+.navbar { padding: 0; }
+
 div.mtitle  { padding: 6px 0; }
 
 div.helprow { padding: 3px 0; }
@@ -14,7 +16,7 @@ span.paglink { padding: 0 10px; width: 40px; cursor: pointer; }
 span.disabled { cursor: default; }
 span.active { padding-right: 35px; }
 span.active span.badge { font-size: 85%; }
-
+form.form-inline i.material-icons { font-size: xx-large; padding-right: 10px; }
 i.ilink:hover {  color: #c0c0f0; cursor: pointer; }
 
 span.keycmd { padding: 2px 5px; border: 1px solid black; border-radius: 4px; }
@@ -48,13 +50,13 @@ div.outerguess {
 /*    height: 375px; */
     background: linear-gradient(45deg, rgba(0,0,0,1) 1%, rgba(22,22,22,1) 19%, rgba(92,92,92,1) 73%, rgba(128,128,128,1) 100%); /* w3c */
     color: #fff;
-    margin: 5px;
+    margin: 4px 1px;
     overflow: hidden;
     flex-wrap: wrap;
     display: inline-flex;
     vertical-align: top;
-    border-radius: 13px;
-    border: 5px solid #999;
+    border-radius: 0 0 13px 13px;
+    border: 3px solid #333;
     z-index: 20;
 }
 
@@ -62,7 +64,7 @@ div.ucwrap {
     overflow-y: auto;
     overflow-x: hidden;
     margin: 0;
-    padding: 5px 6px;
+    padding: 2px 6px 3px;
     border-top: dotted 1px #989898;
     line-height: 1em;
     font-size: 1em;
@@ -128,7 +130,7 @@ nav { display: block; background-color: black; color: white; width: 100%;}
     width: 100%;
 }
 #navtop { height: 50px; }
-#footer { padding: 10px 0; font-size: 8pt; margin-top: 15px;}
+#footer { padding: 5px 0; font-size: 8pt; margin-top: 15px;}
 
 label i {
     position: absolute;
@@ -152,7 +154,7 @@ div.ubooksummary { font-size: 7pt; color: #d2d2d2; padding-bottom: 5px; padding-
 
 div.reader-whole { text-align: center; }
 
-div.reader-overlay { display: block; width: 100%; object-fit: contain; }
+div.reader-overlay { display: inline-flex; object-fit: contain; }
 
 img.reader-page-wide { width: 100%; }
 
@@ -189,4 +191,5 @@ div.coverthumb { cursor: pointer; }
 #spindiv { z-index: 100; height: 180px; width: 200px; background: #004; text-align: center; position: fixed; padding-top: 10px; border-radius: 20px; opacity: 0.85; color: white; position: fixed; top: 37%; left: 44%; border: white solid 3px; color: white; }
 #spindivmsg { padding: 30px 10px 0; font-family: sans-serif; font-size: 0.8em; padding-top: 30px; }
 #spindiv img, #spindiv div { opacity: 1.0; }
-  
+
+span.uplink:hover { cursor: pointer; }
