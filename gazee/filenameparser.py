@@ -19,8 +19,75 @@ limitations under the License.
 import re
 import sys
 import os
-from urllib.parse import unquote
+try:
+    from urllib.parse import unquote
+except:
+    from urllib import unquote
+
 # import self.volume
+
+def breakup_filename(fn):
+    series = issue = volume = subtitle = None
+    num = None
+    
+#    print("Re-parsing %s" % fn)
+    pat = re.search(r'(.+)\s+(v|vol\.?\s*|volume\s*)(\d+)\s*-\s*(.+)$', fn, re.I)
+    if pat is not None:
+        series = pat.group(1)
+        volume = pat.group(3)
+        subtitle = pat.group(4)
+        num = 1
+    else:
+        pat = re.search(r'(.+?) (v|vol\.?\s*|volume\s*)(\d+)\s*[-\(]+', fn, re.I)
+        if pat is not None:
+            series = pat.group(1)
+            volume = pat.group(3)
+            issue = None
+            num = 2
+        else:
+            pat = re.search(r'(.+?) (v|vol\.?\s*|volume\s*)(\d+)\s*$', fn, re.I)
+            if pat is not None:
+                series = pat.group(1)
+                volume = pat.group(3)
+                issue = None
+                num = 3
+            else:
+                pat = re.search(r'(.+?) (part\s*)?T?(\d+)\s*[\(\[]?of \d+[-\(]+', fn, re.I)
+                if pat is not None:
+                    series = pat.group(1)
+                    issue = int(pat.group(3), 10)
+                    num = 4
+                else:
+                    pat = re.search(r'(.+?) (part\s*)?T?(\d+)\s*[-\(]+', fn, re.I)
+                    if pat is not None:
+                        series = pat.group(1)
+                        issue = int(pat.group(3), 10)
+                        num = 5
+                    else:
+                        pat = re.search(r'(.+?) (part\s*)?T?(\d+)\s*$', fn, re.I)
+                        if pat is not None:
+                            series = pat.group(1)
+                            issue = int(pat.group(3), 10)
+                            num = 6
+                        else:
+                            pat = re.search(r'(.+?) (part\s*)?T?(\d+)\s*$', fn, re.I)
+                            if pat is not None:
+                                series = pat.group(1)
+                                issue = None
+                                num = 7
+    
+    if volume is not None and volume != '' and isinstance(volume, str):
+        if volume.isdigit():
+            volume = int(volume, 10)
+
+    if issue is not None and issue != '' and isinstance(issue, str):
+        if issue.isdigit():
+            issue = int(issue, 10)
+    
+    print("Series: %s  Issue: %s   Vol: %s  Num: %s" % (series, issue, volume, num))
+    return (series,issue, volume)
+
+
 class FileNameParser:
     def __init__(self):
         self.series = self.issue = self.volume = None
@@ -262,6 +329,8 @@ class FileNameParser:
         filename = os.path.splitext(filename)[0]
         # url decode, just in case
         filename = unquote(filename)
+        
+        savefilename = filename
         # sometimes archives get messed up names from too many decodings
         # often url encodings will break and leave "_28" and "_29" in place
         # of "(" and ")"  see if there are a number of these, and replace them
@@ -271,40 +340,50 @@ class FileNameParser:
         filename = re.sub(r'((\d\d\d\d)-\d\d-\d\d) (\((#[^\)]+)\))',
                           r'\4 (\2)', filename)
         trv = self.getIssueNumber(filename)
-        if trv is not None and (len(trv) == 3):
-            self.issue, issue_start, issue_end = trv
-            trv = self.getSeriesName(filename, issue_start)
-            if trv is not None and len(trv) == 2:
-                self.series, self.volume = trv
-            else:
-                print("Cannot locate series for filename: %s" % filename)
-                sys.exit(1)
-            trv = self.getYear(filename, issue_end)
-            if trv is not None and len(trv) > 1:
-                self.year, year_end = trv
-            self.issue_count = self.getIssueCount(filename, issue_end)
-            grab_end = max(issue_end, year_end)
-            self.remainder = self.getRemainder(filename, self.year,
-                                               self.issue_count, grab_end)
-            if filename is not None and self.remainder is not None:
-                if ('(digital)' in filename.lower()) and ('(digital)' not in self.remainder.lower()):
-                    self.remainder = '{0} (digital)'.format(self.remainder)
-                
-        if self.publisher is not None:
-            if self.series is not None and self.publisher.lower().strip().endswith(' vol'):
-                self.series = self.series[:-4]
-        if self.volume is not None and self.volume != '':
-            self.volume = self.volume.lstrip('0')
-            if self.volume == '':
-                self.volume = '0'
-        if self.issue is not None and self.issue != "":
-            if self.issue.lower() == 'tpb':
-                self.issue = ''
-            else:
-                # strip off leading zeros
-                self.issue = self.issue.lstrip("0")
-                if self.issue == "":
-                    self.issue = "0"
-                if self.issue[0] == ".":
-                    self.issue = "0" + self.issue
-        return {'series': self.series, 'issue': self.issue}
+        
+        use_breakup = True
+        
+        if not use_breakup:
+        
+            if trv is not None and (len(trv) == 3):
+                self.issue, issue_start, issue_end = trv
+                trv = self.getSeriesName(filename, issue_start)
+                if trv is not None and len(trv) == 2:
+                    self.series, self.volume = trv
+                else:
+                    print("Cannot locate series for filename: %s" % filename)
+                    sys.exit(1)
+                trv = self.getYear(filename, issue_end)
+                if trv is not None and len(trv) > 1:
+                    self.year, year_end = trv
+                self.issue_count = self.getIssueCount(filename, issue_end)
+                grab_end = max(issue_end, year_end)
+                self.remainder = self.getRemainder(filename, self.year,
+                                                   self.issue_count, grab_end)
+                if filename is not None and self.remainder is not None:
+                    if ('(digital)' in filename.lower()) and ('(digital)' not in self.remainder.lower()):
+                        self.remainder = '{0} (digital)'.format(self.remainder)
+                    
+            if self.publisher is not None:
+                if self.series is not None and self.publisher.lower().strip().endswith(' vol'):
+                    self.series = self.series[:-4]
+            if self.volume is not None and self.volume != '':
+                self.volume = self.volume.lstrip('0')
+                if self.volume == '':
+                    self.volume = '0'
+            if self.issue is not None and self.issue != "":
+                if self.issue.lower() == 'tpb':
+                    self.issue = ''
+                else:
+                    # strip off leading zeros
+                    self.issue = self.issue.lstrip("0")
+                    if self.issue == "":
+                        self.issue = "0"
+                    if self.issue[0] == ".":
+                        self.issue = "0" + self.issue
+        else:
+            series, issue, volume = breakup_filename(savefilename)
+#            print("Series: %s  Issue: %s  Volume: %s" % (series, issue, volume))
+            return {'series': series, 'issue': issue, 'volume': volume}
+
+        return {'series': self.series, 'issue': self.issue, 'volume': self.volume}
