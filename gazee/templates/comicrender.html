@@ -2,19 +2,18 @@
               <div id="threescreens" style="display: flex;width: 300vw;margin-left: -100vw;">
               <div id="screen_1" style="width: 100vw;">
 % for comic in comics1:
-                  <div class="outerguess" id="outcov${comic['Key']}" indexpg="${comic['IndexPage']}" style="height: ${maxht + 52}px; ${comic['DispStyle']}">
+                  <div class="outerguess" id="outcov${comic['Key']}" indexpg="${comic['IndexPage']}" style="height: ${maxht + 46}px; ${comic['DispStyle']}">
                     <figure style="width: ${maxwid}px;">
-                      <a href="/read_comic?cid=${comic['Key'] | u}" id="image-link"></a>
                       <div id="cov${comic['Key']}" class="coverthumb" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
                           <img class="smcover" cid="${comic['Key']}" style="max-height: ${maxht}px;" src="/cover?cid=${comic['Key']}">
                       </div>
                       <figcaption>
-                        <div class="ucwrap" style="height: 45px">
+                        <div class="ucwrap" style="height: 42px">
                           <span class="uline">
                           <i class="material-icons dlicon" cid="${comic['Key']}" style="float: left;">file_download</i></a>
                           <i class="material-icons expicon" cid="${comic['Key']}" style="font-size: 12pt; float: right; font-weight: bold;">expand_less</i></a>
                           <div class="ubooktitle">
-                            ${comic['ComicName'] | h} ${comic['ComicIssue'] | h}
+                            ${comic['ComicTitle'] | h}
                           </div>
                           </span>
 
@@ -43,9 +42,8 @@
               </div>
               <div id="onscreencomics" style="width: 100vw;">
 % for comic in comics2:
-                  <div class="outerguess" id="outcov${comic['Key']}" indexpg="${comic['IndexPage']}" style="height: ${maxht + 52}px; ${comic['DispStyle']}">
+                  <div class="outerguess" id="outcov${comic['Key']}" indexpg="${comic['IndexPage']}" style="height: ${maxht + 46}px; ${comic['DispStyle']}">
                     <figure style="width: ${maxwid}px;">
-                      <a href="/read_comic?cid=${comic['Key'] | u}" id="image-link"></a>
                       <div id="cov${comic['Key']}" class="coverthumb" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
                           <img class="smcover" cid="${comic['Key']}" style="max-height: ${maxht}px;" src="/cover?cid=${comic['Key']}">
                       </div>
@@ -55,7 +53,7 @@
                           <i class="material-icons dlicon" cid="${comic['Key']}" style="float: left;">file_download</i></a>
                           <i class="material-icons expicon" cid="${comic['Key']}" style="font-size: 12pt; float: right; font-weight: bold;">expand_less</i></a>
                           <div class="ubooktitle">
-                            ${comic['ComicName'] | h} ${comic['ComicIssue'] | h}
+                            ${comic['ComicTitle'] | h}
                           </div>
                           </span>
 
@@ -83,9 +81,8 @@
               </div>
               <div id="screen_3" style="width: 100vw;">
 % for comic in comics3:
-                  <div class="outerguess" id="outcov${comic['Key']}" indexpg="${comic['IndexPage']}" style="height: ${maxht + 52}px; ${comic['DispStyle']}">
+                  <div class="outerguess" id="outcov${comic['Key']}" indexpg="${comic['IndexPage']}" style="height: ${maxht + 46}px; ${comic['DispStyle']}">
                     <figure style="width: ${maxwid}px;">
-                      <a href="/read_comic?cid=${comic['Key'] | u}" id="image-link"></a>
                       <div id="cov${comic['Key']}" class="coverthumb" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
                           <img class="smcover" cid="${comic['Key']}" style="width: ${maxwid}px; max-height: ${maxht}px;" src="/cover?cid=${comic['Key']}">
                       </div>
@@ -95,7 +92,7 @@
                           <i class="material-icons dlicon" cid="${comic['Key']}" style="float: left;">file_download</i></a>
                           <i class="material-icons expicon" cid="${comic['Key']}" style="font-size: 12pt; float: right; font-weight: bold;">expand_less</i></a>
                           <div class="ubooktitle">
-                            ${comic['ComicName'] | h} ${comic['ComicIssue'] | h}
+                            ${comic['ComicTitle'] | h}
                           </div>
                           </span>
 

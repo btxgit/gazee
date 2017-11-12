@@ -42,7 +42,7 @@ def sizestr(num, dplaces=2, minunit=False):
 
 
 class comic_db(gazee_db):
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
     dir_cache = {}
     fn_cache = {}
     last_thumb_time = None
@@ -58,6 +58,7 @@ class comic_db(gazee_db):
         self._pending = 0
         self._numrecs = 0
         self._pct = None
+        print("gazee_comics.db is: %s" % self.dbpath)
 
     def get_stats(self):
         return (self._pending, self._numrecs, self._pct)
@@ -69,13 +70,18 @@ class comic_db(gazee_db):
         conn = sqlite3.connect(self.dbpath)
         sql = '''CREATE TABLE IF NOT EXISTS all_directories(dirid INTEGER PRIMARY KEY AUTOINCREMENT, parentid INTEGER NOT NULL, full_dir_path TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS dir_names(dirid INTEGER PRIMARY KEY, nice_name TEXT NOT NULL, dir_image TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS all_comics(comicid INTEGER PRIMARY KEY AUTOINCREMENT, dirid INTEGER NOT NULL, filename TEXT NOT NULL COLLATE NOCASE, filesize INTEGER DEFAULT 0, pages integer DEFAULT 0, image TEXT, name TEXT, issue INTEGER, publisher integer, volume INTEGER, summary TEXT, width integer, height integer, ratio real, adddate datetime DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS all_comics(comicid INTEGER PRIMARY KEY AUTOINCREMENT, dirid INTEGER NOT NULL, filename TEXT NOT NULL COLLATE NOCASE, filesize INTEGER DEFAULT 0, pages integer DEFAULT 0, image TEXT, seriesid integer NOT NULL, issue INTEGER, publisher integer, volume INTEGER, summary TEXT, width integer, height integer, ratio real, adddate datetime DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS comic_series(seriesid INTEGER PRIMARY KEY AUTOINCREMENT, collname TEXT NOT NULL, name TEXT NOT NULL);
+INSERT INTO comic_series(seriesid, collname, name) VALUES (1, "unknown", "Unknown");
 CREATE TABLE IF NOT EXISTS publishers (pubid integer primary key autoincrement, name);
 CREATE VIEW IF NOT EXISTS comicdirs AS SELECT d.dirid as dirid, c.comicid AS comicid, d.full_dir_path || '/' || c.filename as fullpath, c.image as image FROM all_directories d INNER JOIN all_comics c ON (d.dirid=c.dirid);
 CREATE INDEX IF NOT EXISTS fnindex ON all_comics(filename ASC);
 CREATE INDEX IF NOT EXISTS dirindex ON all_directories(full_dir_path);
 CREATE INDEX IF NOT EXISTS comicdir ON all_comics(dirid, filename ASC);
-CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
+CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);
+CREATE INDEX IF NOT EXISTS seriesnum on all_comics(seriesid ASC);
+CREATE INDEX IF NOT EXISTS seriesord on comic_series(name ASC);
+CREATE INDEX IF NOT EXISTS seriescollord on comic_series(collname ASC);'''
         log.debug("Executing creation of SQL database: %s with SQL: %s",
                   self.dbpath, sql)
         conn.executescript(sql)
@@ -90,7 +96,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         with sqlite3.connect(self.dbpath) as conn:
             while curver < self.SCHEMA_VERSION:
                 curver += 1
-                if 1 == curver:
+                if 2 == curver:
                     q = ''''''
                     conn.execute(q)
                     conn.commit()
@@ -297,7 +303,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
                 if len(addfns) > 0:
                     num_fn_added += len(addfns)
-                    sql = '''INSERT INTO all_comics(dirid, filename, filesize) VALUES (?, ?, ?)'''
+                    sql = '''INSERT INTO all_comics(seriesid, dirid, filename, filesize) VALUES (1, ?, ?, ?)'''
                     con.executemany(sql, addfns)
                     con.commit()
                     log.info("Added %d new comic files.", len(addfns))
@@ -318,10 +324,41 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
             param = (val, width, height, ratio, cid)
             con.execute(sql, param)
             con.commit()
+    
+    def collate_series(self, series):
+        newseries = ''
+        
+        for c in series:
+            if not c.isalnum():
+                continue
+            c = c.lower()
+            newseries += c
+        
+        return newseries
+        
+    def find_or_add_series(self, name):
+        newseries = self.collate_series(name)
+        
+        sql = '''SELECT seriesid FROM comic_series WHERE collname=?'''
+        param = (newseries, )
+
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            for row in con.execute(sql, param):
+                return row[0]
+
+            sql = '''INSERT INTO comic_series(collname, name) VALUES (?, ?)'''
+            curs = con.cursor()
+            param = (newseries, name)
+            curs.execute(sql, param)
+            sid = curs.lastrowid
+            con.commit()
+            return sid
 
     def update_comic_meta(self, cid, num_pages, series, issue):
-        sql = '''UPDATE all_comics SET name=?,issue=?,pages=? WHERE comicid=?;'''
-        param = (series, issue, num_pages, cid)
+        sid = self.find_or_add_series(series)
+        
+        sql = '''UPDATE all_comics SET seriesid=?,issue=?,pages=? WHERE comicid=?;'''
+        param = (sid, issue, num_pages, cid)
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
             con.execute(sql, param)
             con.commit()
@@ -501,7 +538,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         with sqlite3.connect(self.dbpath) as con:
             r = con.execute(sql, (cid, )).fetchone()
             r2 = con.execute(sql2, (cid, )).fetchone()
-            r3 = con.execute('''SELECT name, issue, pages FROM all_comics WHERE comicid = ?''', (cid, )).fetchone()
+            r3 = con.execute('''SELECT s.name, c.issue, c.pages FROM all_comics c INNER JOIN comic_series s ON (c.seriesid=s.seriesid) WHERE comicid = ?''', (cid, )).fetchone()
 
             name, issue, pages = r3
 
@@ -525,7 +562,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
         return (None, None, None, None)
     
-    def get_comics_onepage(self, days, perpage, pagenum, recentonly=False):
+    def get_comics_onepage(self, days, perpage, pagenum, series_id, recentonly=False):
         limit = perpage
         baseoff = ((pagenum - 1) * perpage)
         if baseoff < 0:
@@ -535,11 +572,19 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
     
         retl = [ ]
         tnum = 10;
+        
             
         if recentonly:
-            sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate ORDER BY adddate DESC LIMIT ? OFFSET ?''' % days
+            if series_id > 0:
+                sstr = " AND c.seriesid=%d" % series_id
+            else:
+                sstr = ""
+            sql = '''SELECT c.comicid, s.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN comic_series s ON (c.seriesid=s.seriesid) INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate%s ORDER BY adddate DESC LIMIT ? OFFSET ?''' % (days, sstr)
         else:
-            sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) ORDER BY c.filename ASC LIMIT ? OFFSET ?'''
+            if series_id > 0:
+                sql = '''SELECT c.comicid, s.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN comic_series s ON (c.seriesid=s.seriesid) INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE c.seriesid=%d ORDER BY c.issue ASC, c.volume ASC LIMIT ? OFFSET ?''' % series_id
+            else:
+                sql = '''SELECT c.comicid, s.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN comic_series s ON (c.seriesid=s.seriesid) INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) ORDER BY c.filename ASC LIMIT ? OFFSET ?'''
 
         t = (limit, baseoff)
         cpath = gazee.config.COMIC_PATH
@@ -570,8 +615,26 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 
                 if pubname is None:
                     pubname = "?"
+                
+                ComicTitle = name
+                
+                if vol is not None and vol != '':
+                    ComicTitle = u'{0} v{1:02d}'.format(name, vol)
+                    
+                if issue is not None and issue != '':
+                    if isinstance(issue, str):
+                        log.info("Converting issue (%s) into an int.", issue)
+                        if issue.isdigit():
+                            issue = int(issue, 10)
+                            isstr = '{0:03d}'.format(issue)
+                        else:
+                            issue = issue.strip('#')
+                            isstr = '{0}'.format(issue)
+                    
+                    ComicTitle = u'{0} #{1}'.format(ComicTitle, isstr)
 
                 retl.append({'Key': cid, 'ComicName': name,
+                             'ComicTitle': ComicTitle,
                              'ComicImage': img,
                              'ComicIssue': issue,
                              'ComicVolume': vol,
@@ -584,8 +647,110 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                              'DispStyle': dstyle,
                              'PubName': pubname})
         return retl
+
+    def get_series_onepage(self, perpage, pagenum):
+        limit = perpage
+        baseoff = ((pagenum - 1) * perpage)
+        if baseoff < 0:
+            skipquery = True
+        else:
+            skipquery = False
     
-    def get_comics(self, days, perpage, pagenum, recentonly=False):
+        retl = [ ]
+        tnum = 10;
+        
+        sql = '''SELECT s.seriesid, s.name, c.comicid, count(c.comicid), sum(c.filesize) FROM comic_series s inner join all_comics c ON (s.seriesid = c.seriesid) WHERE (s.name <> '') GROUP BY s.seriesid ORDER BY s.name ASC LIMIT ? OFFSET ?;'''
+        
+        t = (limit, baseoff)
+        cpath = gazee.config.COMIC_PATH
+
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            if not skipquery:
+                log.info("Executing SQL: %s  with t: %s", sql, str(t))
+                rows = con.execute(sql, t).fetchall()
+            else:
+                rows = []
+            nrows = len(rows)
+            addrecs = limit - nrows
+            for ti in range(addrecs):
+                cid = "99999" + str(tnum)
+                rv = (cid, "", "", "", 0)
+                rows.append(rv)
+            for row in rows:
+                sid, name, cid, num_comics, total_size = row
+                dispstyle = "display: none;" if name == '' else ""
+                retl.append({'Key': sid, 
+                             'SeriesName': name,
+                             'ComicID': cid,
+                             'NumComics': num_comics,
+                             'TotalSize': sizestr(total_size),
+                             'DispStyle': dispstyle})
+        return retl
+        
+    def get_series(self, perpage, pagenum):
+        startpage = 2
+        endpage = 3
+        comicsretl = [ [], [], [] ]
+        tnum = 10;
+        
+        if (pagenum > 1):
+            limit = (perpage * 3)
+            baseoff = ((pagenum - 2) * perpage)
+            if baseoff < 0:
+                limit += baseoff
+                baseoff = 0
+            startpage = 1
+        else:
+            baseoff = 0
+            limit = (perpage * 2)
+        
+#        baseoff = ((pagenum - 1) * perpage) - 1
+
+        sql = '''SELECT s.seriesid, s.name, c.comicid, count(c.comicid), sum(c.filesize) FROM comic_series s inner join all_comics c ON (s.seriesid = c.seriesid) WHERE (s.name <> '') GROUP BY s.seriesid ORDER BY s.name ASC LIMIT ? OFFSET ?;'''
+
+        t = (limit, baseoff)
+        minpgadd = 0
+        if (startpage > 1):
+            minpgadd = 1
+            for i in range(perpage):
+                tnum += 1
+                comicsretl[0].append({'Key': "99999" + str(tnum), 
+                                           'SeriesName': "",
+                                           'ComicID': "",
+                                           'NumComics': "",
+                                           'TotalSize': 0,
+                                           'DispStyle': "display: none;"})
+                
+            
+        
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            rnum = 0
+            log.info("Executing SQL: %s  with t: %s", sql, str(t))
+            rows = con.execute(sql, t).fetchall()
+            nrows = len(rows)
+            addrecs = limit - nrows
+            for ti in range(addrecs):
+                cid = "99999" + str(tnum)
+                rv = (cid, "", "", "", 0)
+                rows.append(rv)
+            for row in rows:
+                rnum += 1
+                rowind = ((rnum - 1) // perpage)
+                rowind += minpgadd;
+                sid, name, cid, num_comics, total_size = row
+                dispstyle = "display: none;" if name == "" else ""
+                    
+                comicsretl[rowind].append({'Key': sid, 
+                                           'SeriesName': name,
+                                           'ComicID': cid,
+                                           'NumComics': num_comics,
+                                           'TotalSize': sizestr(total_size),
+                                           'DispStyle': dispstyle})
+        log.debug(comicsretl)
+        return comicsretl
+        
+    
+    def get_comics(self, days, perpage, pagenum, series_id=-1, recentonly=False):
         startpage = 2
         endpage = 3
         comicsretl = [ [], [], [] ]
@@ -605,11 +770,16 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
 #        baseoff = ((pagenum - 1) * perpage) - 1
 
         if recentonly:
-            sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate ORDER BY adddate DESC LIMIT ? OFFSET ?''' % days
+            if series_id > 0:
+                sstr = " AND c.seriesid=%d" % series_id
+            else:
+                sstr = ""
+            sql = '''SELECT c.comicid, s.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN comic_series s ON (c.seriesid=s.seriesid) INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE date('now', '-%d days') <= c.adddate%s ORDER BY adddate DESC LIMIT ? OFFSET ?''' % (days, sstr)
         else:
-            sql = '''SELECT c.comicid, c.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) ORDER BY c.filename ASC LIMIT ? OFFSET ?'''
-
-# p.name /  left JOIN publishers p ON (c.publisher=p.pubid)
+            if series_id > 0:
+                sql = '''SELECT c.comicid, s.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN comic_series s ON (c.seriesid=s.seriesid) INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) WHERE c.seriesid=%d ORDER BY c.issue ASC, c.volume ASC LIMIT ? OFFSET ?''' % series_id
+            else:
+                sql = '''SELECT c.comicid, s.name, c.image, c.issue, c.volume, c.summary, d.full_dir_path || '/' || c.filename as fullpath, c.adddate, c.filesize, c.pages, p.name FROM all_comics c INNER JOIN comic_series s ON (c.seriesid=s.seriesid) INNER JOIN all_Directories d ON (c.dirid=d.dirid) left JOIN publishers p ON (c.publisher=p.pubid) ORDER BY c.filename ASC LIMIT ? OFFSET ?'''
 
         t = (limit, baseoff)
         cpath = gazee.config.COMIC_PATH
@@ -620,6 +790,7 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                 tnum += 1
                 comicsretl[0].append({'Key': "99999" + str(tnum), 
                                            'ComicName': "",
+                                           'ComicTitle': "",
                                            'ComicImage': "",
                                            'ComicIssue': "",
                                            'ComicVolume': "",
@@ -663,8 +834,26 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
                 if pubname is None:
                     pubname = "?"
                     
+                ComicTitle = name
+                
+                if vol is not None and vol != '':
+                    ComicTitle = u'{0} v{1:02d}'.format(name, vol)
+                    
+                if issue is not None and issue != '':
+                    if isinstance(issue, str):
+                        log.info("Converting issue (%s) into an int.", issue)
+                        if issue.isdigit():
+                            issue = int(issue, 10)
+                            isstr = '{0:03d}'.format(issue)
+                        else:
+                            issue = issue.strip('#')
+                            isstr = '{0}'.format(issue)
+                    
+                    ComicTitle = u'{0} #{1}'.format(ComicTitle, isstr)
+                    
                 comicsretl[rowind].append({'Key': cid, 
                                            'ComicName': name,
+                                           'ComicTitle': ComicTitle,
                                            'ComicImage': img,
                                            'ComicIssue': issue,
                                            'ComicVolume': vol,
@@ -680,19 +869,51 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
         log.debug(comicsretl)
         return comicsretl
 
-    def get_recent_comics_count(self, days):
-        sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
-        
+    def get_series_count(self):
+        sql = '''SELECT COUNT(DISTINCT s.seriesid) FROM comic_series s INNER JOIN all_comics c ON (s.seriesid=c.seriesid)'''
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
             row = con.execute(sql).fetchone()
-        
-        return row[0]
+            return row[0]
+            
+        return None
 
-    def get_all_comics_count(self):
-        sql = '''SELECT COUNT(*) FROM all_comics;'''
+    def get_recent_comics_count(self, days, series_id=-1):
+        if not isinstance(series_id, int):
+            series_id = int(series_id, 10)
+        
+        if series_id > 0:
+            param = (series_id, )
+            sql = '''SELECT COUNT(*) FROM all_comics WHERE seriesid=? AND adddate >= date('now', '-%d days')''' % days
+        else:
+            param = None
+            sql = '''SELECT COUNT(*) FROM all_comics WHERE adddate >= date('now', '-%d days')''' % days
+            
         with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
-            row = con.execute(sql).fetchone()
-        return row[0]
+            if param is None:
+                row = con.execute(sql).fetchone()
+            else:
+                row = con.execute(sql, param).fetchone()
+            return row[0]
+        return None
+
+    def get_all_comics_count(self, series_id=-1):
+        if not isinstance(series_id, int):
+            series_id = int(series_id, 10)
+        
+        if series_id > 0:
+            sql = '''SELECT COUNT(*) FROM all_comics WHERE seriesid=?'''
+            param = (series_id, )
+        else:
+            sql = '''SELECT COUNT(*) FROM all_comics;'''
+            param = None
+            
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            if param is None:
+                row = con.execute(sql).fetchone()
+            else:
+                row = con.execute(sql, param).fetchone()
+            return row[0]
+        return None
 
     def get_unprocessed_comics_count(self):
         sql = '''SELECT COUNT(*) FROM all_comics WHERE image is null;'''
@@ -728,6 +949,20 @@ CREATE INDEX IF NOT EXISTS thumbproc ON all_comics(image ASC);'''
             total_unprocsize = sizestr(unprocsize)
         
         return num_comics, num_recent, total_size_str, num_unprocessed, total_unprocsize
+        
+    def reset_series(self):
+        sql = '''UPDATE all_comics SET seriesid=1, issue=null, summary=null, publisher=null;'''
+        with sqlite3.connect(self.dbpath, isolation_level='DEFERRED') as con:
+            con.execute(sql)
+            sql = '''DROP TABLE comic_series;
+CREATE TABLE IF NOT EXISTS comic_series(seriesid INTEGER PRIMARY KEY AUTOINCREMENT, collname TEXT NOT NULL, name TEXT NOT NULL);
+INSERT INTO comic_series(seriesid, collname, name) VALUES (1, "unknown", "Unknown");
+CREATE INDEX IF NOT EXISTS seriesord on comic_series(name ASC);
+CREATE INDEX IF NOT EXISTS seriescollord on comic_series(collname ASC);'''
+            con.executescript(sql)
+            con.commit()
+        
+        return
 
 
 if __name__ == '__main__':

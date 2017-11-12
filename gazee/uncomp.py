@@ -11,7 +11,11 @@
 
 import os
 import logging
-from queue import Queue
+try:
+    import Queue as queue
+except ImportError:
+    import queue
+    
 import threading
 from cherrypy.process.plugins import SimplePlugin
 from gazee.archive import get_archfiles
@@ -22,7 +26,7 @@ log = logging.getLogger(__name__)
 class UncompressThread(SimplePlugin):
     _thread = None
     _running = None
-    _queue = Queue()
+    _queue = queue.Queue()
     
     def __init__(self, bus):
         SimplePlugin.__init__(self, bus)

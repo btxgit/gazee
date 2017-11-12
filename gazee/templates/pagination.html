@@ -1,15 +1,23 @@
-<%page args="pages, current_page, num_of_pages" />
+<%page args="pages, current_page, num_of_pages, series_id" />
 
              <div class="pagecent">
-                 <span class="pagination" curpg="${current_page}" newpg="0" loadpg="0" newid="" lastpg="${num_of_pages}">
+                 <span class="pagination" curpg="${current_page}" newpg="0" loadpg="0" newid="" lastpg="${num_of_pages}" series_id="${series_id}">
 % for page in pages:
   % if page == "...":
                    <span class="disabled">&hellip;</span>
   % elif page == 1:
+    % if series_id > 0:
+                   <span class="uplink"><i class="material-icons">expand_less</i></span>
+    % endif
     % if current_page == 1:
                    <span class="paglink" pg="1"><i class="material-icons">first_page</i></span>
                    <span class="paglink disabled" pg="1""><i class="material-icons">chevron_left</i></span>
                    <span class="paglink disabled active" pg="${page}"><span class="badge badge-success">${page}</span></span>
+        % if current_page == num_of_pages:
+                   <span class="paglink disabled"><i class="material-icons">chevron_right</i></span>
+                   <span class="paglink disabled"><i class="material-icons">last_page</i></span>
+        
+        % endif
     % else:
                    <span class="paglink" pg="1"><i class="material-icons">first_page</i></span>
                    <span class="paglink" pg="${current_page - 1}"><i class="material-icons">chevron_left</i></span>

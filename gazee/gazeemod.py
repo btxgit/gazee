@@ -100,15 +100,9 @@ class Gazeesrv(object):
             rangeWithDots.append(i)
             l = i
         return rangeWithDots
-
+        
     @cherrypy.expose
-    def index(self, page_num=1, recent=False, async=False):
-        """
-        Index Page
-        This returns the html template for the recents div.
-        The recents div is by default the the last twenty
-        comics added to the DB in the last 7 days.
-        """
+    def library(self, page_num=1, async=False):
         if page_num == '':
             page_num = 1
             
@@ -120,11 +114,112 @@ class Gazeesrv(object):
 
         comics_per_page = int(gazee.config.COMICS_PER_PAGE)
 
+        num_of_series = self.cdb.get_series_count()
+
+        num_of_pages = (num_of_series // comics_per_page)
+        if num_of_series % comics_per_page > 0:
+            num_of_pages += 1
+
+        log.debug("Comics: %d  per page: %d  num_pages: %d", num_of_series, comics_per_page, num_of_pages)
+
+        if (page_num > num_of_pages):
+            page_num = 1
+
+        comics = self.cdb.get_series(comics_per_page, page_num)
+        num_comics, num_recent, bytes_str, num_unprocessed, total_unprocsize = self.cdb.get_comics_stats()
+
+        pages = self.pag(page_num, num_of_pages)
+        
+        if async:
+            return self.serve_template(templatename="alibrary.html",
+                                       comics1=comics[0],
+                                       comics2=comics[1],
+                                       comics3=comics[2],
+                                       num_of_pages=num_of_pages,
+                                       current_page=int(page_num),
+                                       pages=pages,
+                                       maxht=gazee.config.THUMB_MAXHEIGHT,
+                                       maxwid=gazee.config.THUMB_MAXWIDTH)
+        else:
+            return self.serve_template(templatename="library.html",
+                                       comics1=comics[0],
+                                       comics2=comics[1],
+                                       comics3=comics[2],
+                                       num_of_pages=num_of_pages,
+                                       current_page=int(page_num),
+                                       pages=pages,
+                                       maxht=gazee.config.THUMB_MAXHEIGHT,
+                                       maxwid=gazee.config.THUMB_MAXWIDTH,
+                                       num_comics=num_comics,
+                                       num_recent=num_recent,
+                                       total_bytes=bytes_str,
+                                       nup=num_unprocessed,
+                                       tunp=total_unprocsize)
+                                       
+    @cherrypy.expose
+    def sindex(self, page_num=1):
+        return self.library(page_num, True)
+
+    @cherrypy.expose
+    def sjindex(self, load_page=1, cur_page=1):
+        """ Ajax + JSON Index Page
+        This returns the html in JSON form
+        """
+        log.info("Async JSON Index Requested")
+        if not isinstance(load_page, int):
+            load_page = int(load_page, 10)
+        if not isinstance(cur_page, int):
+            cur_page = int(cur_page, 10)
+            
+        comics_per_page = int(gazee.config.COMICS_PER_PAGE)
+
+        num_of_series = self.cdb.get_series_count()
+        log.info("There are currently %d series.", num_of_series)
+
+        num_of_pages = (num_of_series // comics_per_page)
+        if num_of_series % comics_per_page > 0:
+            num_of_pages += 1
+        
+        pages = self.pag(cur_page, num_of_pages)
+        
+        comics = self.cdb.get_series_onepage(comics_per_page, load_page)
+                                            
+        pstr = self.serve_template(templatename="pagination.html",
+                                   pages=pages,
+                                   current_page=cur_page,
+                                   num_of_pages=num_of_pages,
+                                   series_id=-1)
+        comics.append(pstr)
+        return json.dumps(comics)
+
+    @cherrypy.expose
+    def index(self, page_num=1, series_id=-1, recent=False, async=False):
+        """
+        Index Page
+        This returns the html template for the recents div.
+        The recents div is by default the the last twenty
+        comics added to the DB in the last 7 days.
+        """
+        if page_num in ['', '!']:
+            page_num = 1
+            
+        if not isinstance(page_num, int):
+            if page_num.isdigit():
+                page_num = int(page_num, 10)
+
+        if not isinstance(series_id, int):
+            series_id = int(series_id, 10)
+        
+        if not async:
+            log.info("Index Requested")
+
+        comics_per_page = int(gazee.config.COMICS_PER_PAGE)
+
         if recent:
-            num_of_comics = self.cdb.get_recent_comics_count(7)
+            num_of_comics = self.cdb.get_recent_comics_count(7, series_id)
 #            print("Recent comics count: %d" % num_of_comics)
         else:
-            num_of_comics = self.cdb.get_all_comics_count()
+            num_of_comics = self.cdb.get_all_comics_count(series_id)
 #            print("All comics count: %d" % num_of_comics)
         
         num_of_pages = (num_of_comics // comics_per_page)
@@ -136,8 +231,7 @@ class Gazeesrv(object):
         if (page_num > num_of_pages):
             page_num = 1
 
-        comics = self.cdb.get_comics(7, comics_per_page, page_num,
-                                     recentonly=recent)
+        comics = self.cdb.get_comics(7, comics_per_page, page_num, series_id, recentonly=recent)
         num_comics, num_recent, bytes_str, num_unprocessed, total_unprocsize = self.cdb.get_comics_stats()
 
         pages = self.pag(page_num, num_of_pages)
@@ -152,7 +246,8 @@ class Gazeesrv(object):
                                        current_page=int(page_num),
                                        pages=pages,
                                        maxht=gazee.config.THUMB_MAXHEIGHT,
-                                       maxwid=gazee.config.THUMB_MAXWIDTH)
+                                       maxwid=gazee.config.THUMB_MAXWIDTH,
+                                       series_id=series_id)
         else:
             return self.serve_template(templatename="index.html",
                                        comics1=comics[0],
@@ -162,6 +257,7 @@ class Gazeesrv(object):
                                        pages=pages,
                                        maxwid=gazee.config.THUMB_MAXWIDTH,
                                        maxht=gazee.config.THUMB_MAXHEIGHT,
+                                       series_id=series_id,
 
                                        num_comics=num_comics,
                                        num_recent=num_recent,
@@ -170,7 +266,7 @@ class Gazeesrv(object):
 
     
     @cherrypy.expose
-    def ajindex(self, load_page=1, cur_page=1, recent=False):
+    def ajindex(self, load_page=1, cur_page=1, series_id=-1, recent=False):
         """ Ajax + JSON Index Page
         This returns the html in JSON form
         """
@@ -179,11 +275,13 @@ class Gazeesrv(object):
             load_page = int(load_page, 10)
         if not isinstance(cur_page, int):
             cur_page = int(cur_page, 10)
+        if not isinstance(series_id, int):
+            series_id = int(series_id, 10)
             
         if recent:
-            num_of_comics = self.cdb.get_recent_comics_count(7)
+            num_of_comics = self.cdb.get_recent_comics_count(7, series_id, series_id)
         else:
-            num_of_comics = self.cdb.get_all_comics_count()
+            num_of_comics = self.cdb.get_all_comics_count(series_id)
         num_of_pages = 0
         comics_per_page = int(gazee.config.COMICS_PER_PAGE)
 
@@ -194,24 +292,25 @@ class Gazeesrv(object):
         pages = self.pag(cur_page, num_of_pages)
         
 
-        comics = self.cdb.get_comics_onepage(7, comics_per_page, load_page,
+        comics = self.cdb.get_comics_onepage(7, comics_per_page, load_page, series_id, 
                                             recentonly=recent)
                                             
         pstr = self.serve_template(templatename="pagination.html",
                                    pages=pages,
                                    current_page=cur_page,
-                                   num_of_pages=num_of_pages)
+                                   num_of_pages=num_of_pages,
+                                   series_id=series_id)
         comics.append(pstr)
         return json.dumps(comics)
     
     @cherrypy.expose
-    def aindex(self, page_num=1, recent=False):
+    def aindex(self, page_num=1, series_id=-1, recent=False):
         """ Ajax Index Page
         This returns the html template that just has the pagination
         and the comic view
         """
         log.info("Async Index Requested: %s", page_num)
-        return self.index(page_num, recent, True)
+        return self.index(page_num, series_id, recent, True)
 
     @cherrypy.expose
     def cstats(self):
@@ -252,31 +351,14 @@ class Gazeesrv(object):
                                    user_level=user_level,
                                    search_string=search_string)
 
-    """
-    This returns the library view starting with the root library directory.
-    """
-    # Library Page
-    @cherrypy.expose
-    def library(self, parent, directory, page_num=1):
-        if not cherrypy.session.loaded:
-            cherrypy.session.load()
-        if 'sizepref' not in cherrypy.session:
-            cherrypy.session['sizepref'] = 'wide'
-        log.info("Library Requested")
-        comics = []
-        user = cherrypy.request.login
-        user_level = self.gset.get_user_level(user)
-
-        return self.serve_template(templatename="library.html",
-                                   comics=comics,
-                                   current_page=int(page_num),
-                                   current_dir=directory,
-                                   user_level=user_level)
 
     @cherrypy.expose
     def cover(self, cid=-1):
         """ Returns the cover thumbnail for comicid <id>
         """
+        if (cid == ''):
+            return
+            
         if not isinstance(cid, int):
             cid = int(cid, 10)
 

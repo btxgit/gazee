@@ -8,22 +8,32 @@
 <div style="display: none;" id="gazeeconf">
 <%include file="cfgform.html" />
 </div>
-<header>
-<nav role="navigation" class="navbar navbar-expand-lg navbar-dark bg-dark justify-content-between" style="display: inline-block;">
-    <a class="navbar-brand" style="float: left; display: inline-block;" href="#!">GAZEE</a>
-    <form class="form-inline my-2 my-lg-0" style="display: inline-block;" >
-      <input class="form-control mr-sm-2" type="text" placeholder="Search">
-      <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
-    </form>
-    <div class="nav-item" style="float: right; padding: 8px 10px 0 0;">
-      <a id="setanc"><i class="material-icons ilink">settings</i></a>
-    </div>
+<header class="navbar navbar-expand">
+<nav class="navbar justify-content-between" style="padding: .3rem .5rem;">
+  <a class="navbar-brand">Gazee</a>
+  
+<ul class="navbar-nav flex-row ml-md-auto d-none d-md-flex" style="float: right;">
+    <li class="nav-item dropdown">
+      <a class="nav-item nav-link dropdown-toggle mr-md-2" href="#" id="bd-versions" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+        Alphabetical Index
+      </a>
+      <div class="dropdown-menu dropdown-menu-right" aria-labelledby="bd-versions">
+        <a class="dropdown-item active" href="/">Alphabetical Index</a>
+        <a class="dropdown-item" href="/library">Grouped by Series</a>
+      </div>
+    </li>
+  <form class="form-inline">
+    <i id="setanc" class="material-icons ilink">settings</i>
+    <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search">
+    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+  </form>
+  </ul>  
 </nav>
 </header>
 
 <div id="pgcontent">
   <div id="pagination" style="width: 100%;">
-      <%include file="pagination.html" args="pages=pages, current_page=current_page, num_of_pages=num_of_pages"/>
+      <%include file="pagination.html" args="pages=pages, current_page=current_page, num_of_pages=num_of_pages, series_id=series_id"/>
   </div>
   <%include file="comicrender.html" args="comics1=comics1, comics2=comics2, comics3=comics3, maxht=maxht, maxwid=maxwid" />
 </div>
@@ -192,6 +202,7 @@
             $('#spindiv').show()
             var tcid = $(this).attr('cid')
             var u = '/read_comic?cid=' + tcid
+            push_link()
             window.location.href = u
             return
          })
@@ -203,6 +214,13 @@
             $.getJSON(u).done(function(data) {
                 window.location.reload()
             })
+        })
+        
+        $('#pgcontent').on('click', 'span.uplink', function() {
+            var loc = pop_link()
+            console.log("Redirecting to " + loc)
+            window.location.href = loc
+            return
         })
       });
       
@@ -217,6 +235,7 @@
           var loadpg = parseInt($('span.pagination').attr('loadpg'), 10)
           var newpg = $('span.pagination').attr('newpg')
           var hval = window.location.hash.substr(1)
+          var series_id = parseInt($('span.pagination').attr('series_id'), 10)
           console.log("Saw a hash change hval: " + hval + " curl: " + curl)
           
 
@@ -225,8 +244,10 @@
              console.log("On proper page already.")
              return
           }
-
+          
           var u = '/aindex?page_num=' + hval
+          if (series_id > 0)
+              u += "&series_id=" + series_id
           $('#pgcontent').load(u, function() {
               $(document).scrollTop(0)
               var pgnum = $('span.paglink.active').attr('pg');
@@ -237,7 +258,8 @@
       
       function start_hidden_page_load(newpg, loadpg, newid) {
           if (loadpg >= 0) {
-              $.getJSON('/ajindex?load_page=' + loadpg + "&cur_page=" + newpg).done(function(data) {
+              var series_id = parseInt($('span.pagination').attr('series_id'), 10)
+              $.getJSON('/ajindex?load_page=' + loadpg + "&cur_page=" + newpg + "&series_id=" + series_id).done(function(data) {
 //                 var newid = $('span.pagination').attr('newid')
                  var tpg = data.pop()
                  $('#pagination').html(tpg)
@@ -257,7 +279,6 @@
                     } else {
                         dval = 'none'
                     }
-                    
                     if (jd.ComicIssue != "")
                         cname += " " + jd.ComicIssue
                     var ct = "cov" + k
@@ -269,12 +290,12 @@
                     $(oldid + " div.ubookpath").text(jd.RelPath)
                     $(oldid + " div.ubooktitle").text(cname)
                     $(oldid + " div.ubooksummary").text(jd.ComicSummary)
-                    $(oldid + " div.sizepg span.pgclass").text("Pages: " + jd.Pages)
-                    $(oldid + " div.sizepg span.szclass").text("Size: " + jd.Size)
 //                    console.log("About to set " + oldid + " div.coverthumb -> id = " + ct)
                     $(oldid + " div.coverthumb").attr('id', ct)
                     $(oldid).attr('id', oct)
                     $('#' + oct).css('display', dval)
+                    $('#' + oct + " div.sizepg span:first").text("Pages: " + jd.Pages)
+                    $('#' + oct + " div.sizepg span:last").text("Size: " + jd.Size)
                  })
                  curl = $('span.paglink.active').attr('pg')
                  console.log("Setting new hash value to: " + newpg + " with curl: "  + curl)
@@ -305,12 +326,21 @@
           var lastpg = parseInt($('ul.pagination').attr('lastpg'), 10)
           var newpg = (curpg + delta)
           $('span.pagination').attr('newpg', newpg)
-          if ((newpg < 1) || (newpg > lastpg)) {
-              console.log("newpg is invalid: " + newpg)
+          if ((delta > 1) || (delta < -1)) {
+              if (newpg < 1)
+                newpg = 1
+              else if (newpg > lastpg)
+                newpg = lastpg
+              window.location.hash = newpg
               pagebusy = false
               return
+          } else {
+              if ((newpg < 1) || (newpg > lastpg)) {
+                  console.log("newpg is invalid: " + newpg)
+                  pagebusy = false
+                  return
+              }
           }
-          
           var loadpage=null;
           var newid=null;
           
@@ -396,6 +426,37 @@
                   start_timer();
               });
           })
+      }
+      function push_link() {
+          var loc = window.location.href
+          var larr = []
+          var lstor = window.localStorage.getItem('last-location')
+          if (lstor !== null) {
+              larr = JSON.parse(lstor)
+          }
+              
+          larr.push(loc)
+          var jstr = JSON.stringify(larr)
+          window.localStorage.setItem('last-location', jstr)
+      }
+       
+      function pop_link() {
+          var series_id = parseInt($('span.pagination').attr('series_id'), 10)
+          var locstr = window.localStorage.getItem('last-location')
+          if (locstr === null) {
+              if (series_id === -1) {
+                  return "/"
+              } else {
+                  return "/library"
+              }
+          }
+          
+          var larr = JSON.parse(locstr)
+          var loc = larr.pop()
+          var sstr = JSON.stringify(larr)
+          window.localStorage.setItem('last-location', sstr)
+            
+          return loc
       }
       
 </script>

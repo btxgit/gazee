@@ -29,6 +29,7 @@
 <script type="text/javascript">
     tmpev = null;
     preloader = {}
+    saveresizeto = null;
     savetimeout = null;
     
     function preload_single(cid, pg) {
@@ -156,38 +157,83 @@
        }
     }
     
-    function apply_settings() {
+    function adjust_window() {
         var curpg = parseInt($('div.reader-overlay').attr('cpage'), 10)
-        var cid = parseInt($('div.reader-overlay').attr('cid'), 10)
-        var nop = parseInt($('div.reader-overlay').attr('nop'), 10)
-        var twop = (curpg + 1)
         var tstep = get_step()
-        var leftpg = null;
-        var rightpg = null;
+        var twop = (curpg + 1)
+        var nop = parseInt($('div.reader-overlay').attr('nop'), 10)
+        var cid = parseInt($('div.reader-overlay').attr('cid'), 10)
         
         $('div.reader-overlay').attr('step', ''+tstep)
-
-        $('div.reader-overlay img').css('width', '')
-
         console.log("step = " + tstep)
-        
-        leftpg = curpg;
+        $('div.reader-overlay img').css('width', '')
+        var img1 = $('img.pgone')[0]
+        var ratio1 = img1.naturalWidth / img1.naturalHeight
+        console.log("natural width: " + img1.naturalWidth + " height: " + img1.naturalHeight)
+        var img2 = $('img.pgtwo')[0]
+        var ratio2 = img2.naturalWidth / img2.naturalHeight
+        var p1wid = 100
+        var p2wid = 0
+        var p1 = img1.naturalWidth
+        var p2 = 0
+        var p12 = 0
         if ((tstep === 1) || (curpg === 1) || (twop > nop)) {
             $('div.reader-overlay img.pgtwo').hide()
+            
             rightpg = curpg;
         } else {
+            if ((curpg > 1) && (tstep > 1)) {
+                $('img.pgtwo').show()
+            }
             var newurl = make_page_url(cid, twop)
             var cururl = $('img.pgtwo').attr('src')
-            
+            p2 = img2.naturalWidth
             rightpg = twop;
             
             if (newurl !== cururl) {
                 console.debug("Setting twopg URL to: " + newurl)
 //            console.log("Setting height to maximum of " + maxw + "x" + maxh)
                 $('div.reader-overlay img.pgtwo').attr('src', newurl).show()
+            } else {
+                console.debug("cururl: " + cururl + " == newurl: " + newurl);
             }
+            
         }
+        p12 = p1 + p2
+        p1wid = Math.trunc((p1 / p12) * 100)
+        p2wid = 100 - p1wid
+        console.debug("pgone p1: " + p1 + " p1wid: " + p1wid + " p2: " + p2 + " p2wid: " + p2wid + " p12: " + p12)
+        $('img.pgone').css('max-width', '' + p1wid + 'vw')
+        $('img.pgtwo').css('max-width', '' + p2wid + 'vw')
         
+        p1 = $('img.pgone').width()
+        p2 = $('img.pgtwo').width()
+        mxht = $(window).height()
+        
+        propht = Math.round(p1 / ratio1)
+        var newht = null
+        console.log("Proportional ht: " + propht + " mxht: " + mxht)
+        
+        if ((propht > 0) && (propht < mxht))
+            newht = propht + 'px'
+        else
+            newht = '100vh'
+        
+        $('img.pgone').css('max-height', newht)
+        $('img.pgtwo').css('max-height', newht)
+        return rightpg
+    }
+    
+    function apply_settings() {
+        var curpg = parseInt($('div.reader-overlay').attr('cpage'), 10)
+        var leftpg = null;
+        var rightpg = null;
+        
+        rightpg = adjust_window()
+        
+        
+        leftpg = curpg;
+
         if (leftpg < 10)
             leftstr = "0" + leftpg
         else
@@ -208,7 +254,7 @@
             console.log("timeout reset()");
         } else {
             savetimeout = $.timeoutWith(1000, $('#roverlay')).done(function() {
-                savetimeout = null;
+                savetimeout = null
                 $(this).fadeOut(300)
             });
             
@@ -238,6 +284,20 @@
     $(function() {
         $('body').css('display', 'block')
         check_preload();
+        
+        $(window).on('resize', function() {
+            if (saveresizeto !== null) {
+                saveresizeto.reset();
+                console.log("resize timeout reset()");
+            } else {
+                saveresizeto = $.timeout(250).done(function() {
+                    saveresizeto = null;
+                    adjust_window()
+                });
+            }
+            console.log("timeout set.");
+        })
+        
         $('#clsettings-button').on('click', function() {
             $('#page-settings-text').hide()
             $('.reader-overlay').show()
@@ -350,10 +410,13 @@
                 window.setTimeout(apply_settings, 100)
                 e.preventDefault();
             } else if ((e.which === 49) || (e.which === 50)) {
-                if (e.which === 49)
+                if (e.which === 49) {
                     num = 1
-                else
+                    $('img.pgtwo').hide()
+                } else { 
                     num = 2
+                    $('img.pgtwo').show()
+                }
                     
                 set_step(num)
                 apply_settings()
@@ -371,16 +434,10 @@
                 $('div.reader-overlay').toggle()
                 $("div.overlay-settings").toggle()
             } else if (e.which === 81) {
-                var ind = get_last_index_page()
-                var u
-                if (ind === '') {
-                   u = "/"
-                } else {
-                   u = "/#" + ind
-                }
-                window.location.href = u
+                navigate_up()
                 return;
             }
+            
         });
 
         $('div.reader-overlay img').on('load', function() {
@@ -404,6 +461,44 @@
                 url: "update_pref?pref=norm"
             });
         });
+
+        function navigate_up() {
+            var loc = pop_link()
+            window.location.href = loc
+        }
+        
+        function push_link() {
+            var loc = window.location.href
+            var larr = []
+            var lstor = window.localStorage.getItem('last-location')
+            if (lstor !== null) {
+                larr = JSON.parse(lstor)
+            }
+                
+            larr.push(loc)
+            var jstr = JSON.stringify(larr)
+            window.localStorage.setItem('last-location', jstr)
+        }
+         
+        function pop_link() {
+            var series_id = parseInt($('span.pagination').attr('series_id'), 10)
+            var locstr = window.localStorage.getItem('last-location')
+            if (locstr === null) {
+                if (series_id === -1) {
+                    return "/"
+                } else {
+                    return "/library"
+                }
+            }
+            
+            var larr = JSON.parse(locstr)
+            var loc = larr.pop()
+            var sstr = JSON.stringify(larr)
+            window.localStorage.setItem('last-location', sstr)
+              
+            return loc
+        }
     });
+    
 </script>
 </html>
