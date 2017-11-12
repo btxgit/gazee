@@ -73,6 +73,29 @@ def extract_cover_thumb(ao):
     with ao.open(tmpfn) as sf:
         return (num_pages, BytesIO(sf.read()))
 
+def extract_comicinfo(ao):
+    for aoitem in ao.infolist():
+        if aoitem.filename.lower() == 'comicinfo.xml':
+            with ao.open(aoitem, 'r') as archread:
+                return archread.read()
+    return None
+    
+def find_comicinfo(fn):
+    atype = identify_arch(fn)
+    try:
+        if atype == 1:
+            with zipfile.ZipFile(fn) as ao:
+                xml = extract_comicinfo(ao)
+        elif atype == 2:
+            with rarfile.RarFile(fn) as ao:
+                xml = extract_comicinfo(ao)
+        else:
+            return None
+    except:
+        traceback.print_exc(file=sys.stdout)
+        return None
+    
+    return xml
 
 def extract_all_images(ao, outdir, imgpfx=''):
     allrfi = get_image_fns(ao)
@@ -133,13 +156,26 @@ def extract_thumb(crl):
     writtenlist = []
     tl = []
     natpath = None
+    
     for tli in reslist:
+        exact_resize = False
         rx, ry, opath = tli
-
+        if (rx != 0):
+            tgtratio = 1.0 * im.width / im.height
+        
         thumbres = (rx, ry)
         w = im.width
         h = im.height
-        if (rx == 0):
+        
+        if (rx != 0):
+            nwid = round(tgtratio * ry)
+            widdiff = abs(nwid - rx)
+            if (widdiff < 6):
+                log.info("Difference is only %d", widdiff)
+                exact_resize = True
+            else:
+                log.info("Difference is %d", widdiff)
+        else:
             sio.seek(0, 0)
 #            print("Position: %d" % sio.tell())
             s = sio.read()
@@ -151,7 +187,7 @@ def extract_thumb(crl):
         
         mkregthumb = True
         
-        if image_script != 0:
+        if not exact_resize and image_script != 0:
             if not os.path.exists(iprocscr):
                 log.error("Requested the image script, but can't find it - it must be in your current directory.")
                 return None
@@ -176,11 +212,17 @@ def extract_thumb(crl):
             rot = 90
             if mkregthumb:
                 rcopyim = copyim.rotate(rot, Image.BICUBIC, 1)
-                rcopyim.thumbnail(thumbres)
+                if exact_resize:
+                    rcopyim = rcopyim.resize(thumbres, resample = Image.LANCZOS)
+                else:
+                    rcopyim.thumbnail(thumbres)
                 rcopyim.save(opath, quality=85)
         else:
             if mkregthumb:
-                copyim.thumbnail(thumbres)
+                if exact_resize:
+                    copyim = copyim.resize(thumbres, resample = Image.LANCZOS)
+                else:
+                    copyim.thumbnail(thumbres)
                 copyim.save(opath, quality=85)
 
     resd = {'error': False, 'cid': cid, 'num_pages': num_pages, 'owidth': w, 'oheight': h, 'ratio': ratio, 'twidth': thumbres[0], 'theight': thumbres[1], 'rot': rot, 'path': cp, 'tpath': opath}
@@ -203,7 +245,7 @@ def extract_archive(cp, temppath, pfx):
             with rarfile.RarFile(cp) as ao:
                 ifiles = extract_all_images(ao, temppath, pfx)
         else:
-            raise
+            raise (ValueError, "Invalid archive type: %d" % atype)
             return {'error': True, 'message': 'Unrecognized archive format', 'path': cp}
     except:
         raise ((ValueError, "Broken / Illegal file in archive."))
@@ -211,7 +253,7 @@ def extract_archive(cp, temppath, pfx):
         return {'error': True, 'message': 'Caught exception while processing archive', 'path': cp}
 
     return ifiles
-
+    
 def get_archfiles(srcarch):
     try:
         if atype == 1:
