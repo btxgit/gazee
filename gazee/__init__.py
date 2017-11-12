@@ -13,7 +13,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with Gazee.  If not, see <http://www.gnu.org/licenses/>.
 
-__version__ = '0.1.5'
+__version__ = '0.1.6'
 
 from gazee.config import gcfg
 from gazee.gazee_settings_db import gazee_settings
