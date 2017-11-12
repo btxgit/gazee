@@ -1,145 +1,421 @@
 <%!
 	import gazee, os
 %>
-<!doctype html>
-<div class="whole-page">
-<html>
-<head>
-	<title>Gazee</title>
-	<meta name="description" content="Gazee Base Mako Page - Made by Hubcaps / Jessi">
-	<meta name="author" content="Hubcaps / Jessi">
-	
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/css/materialize.min.css">
-  <link rel="stylesheet" type="text/css" href="static/css/style.css">
-</head>
+<!DOCTYPE html>
+<html lang="en">
+<%include file="header.html" />
+<body style="text-align: center;">
+<div style="display: none;" id="gazeeconf">
+<%include file="cfgform.html" />
+</div>
+<header class="navbar navbar-expand">
+<nav class="navbar justify-content-between" style="padding: .3rem .5rem;">
+  <a class="navbar-brand">Gazee</a>
+  
+<ul class="navbar-nav flex-row ml-md-auto d-none d-md-flex" style="float: right;">
+    <li class="nav-item dropdown">
+      <a class="nav-item nav-link dropdown-toggle mr-md-2" href="#" id="bd-versions" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+        Grouped by Series
+      </a>
+      <div class="dropdown-menu dropdown-menu-right" aria-labelledby="bd-versions">
+        <a class="dropdown-item" href="/">Alphabetical Index</a>
+        <a class="dropdown-item active" href="/library">Grouped by Series</a>
+      </div>
+    </li>
+  <form class="form-inline">
+    <i id="setanc" class="material-icons ilink">settings</i>
+    <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search">
+    <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+  </form>
+  </ul>  
+</nav>
+</header>
 
-<body>
-
-  <header>
-    <ul class="dropdown-content" id="nav-dropdown">
-      <li id="dash_dashboard"><a class="" id="dropdown-item" href="/index"><b>Dashboard</b></a></li>
-%if user_level == 'admin':
-      <li id="dash_settings"><a class="" id="dropdown-item" href="/settings"><b>Settings</b></a></li>
-%endif
-    </ul>
-    <nav>
-      <div class="nav-wrapper" id="breadcrumbs">
-        <div class="row">
-          <form id="search_form" action="/search">
-            <div class="input-field col s5 right">
-              <input id="search_field" name="search_string" type="search">
-              <label for="search_string"><i class="material-icons">search</i></label>
-              <i class="material-icons icon-close">close</i>
+<div id="pgcontent">
+  <div id="pagination" style="width: 100%;">
+      <%include file="pagination.html" args="pages=pages, current_page=current_page, num_of_pages=num_of_pages, series_id=-1"/>
+  </div>
+  <%include file="seriesrender.html" args="comics1=comics1, comics2=comics2, comics3=comics3, maxht=maxht, maxwid=maxwid" />
+</div>
+<footer class="page-footer" id="footer">
+    <div class="container-fluid">
+        <div class="row justify-content-md-center">
+            <div class="col col-sm align-self-center">
+                Total Number of Comics: ${num_comics}
             </div>
-            <a class="dropdown-button" href='#!' data-activates='nav-dropdown' data-beloworigin="true"><i class="material-icons">reorder</i></a>
-          </form>
-        </div>
-      </div>
-      <div class="nav-wrapper" id="logo-wrapper">
-        <img style="margin-top: -2px; margin-left: -9px;" width="250" height="70" src="static/images/logo.png"/>
-      </div>
-    </nav>
-
-  </header>
-
-  <main id="whiteboard">
-    <div class="row">
-      <div class="col s8" id="library-breadcrumbs">
-        <a style="margin-left: 20px;" class="breadcrumb" href="/library?parent=''&directory=${gazee.COMIC_PATH}&page_num=1">Comics</a>
-%if parent_dir != '':
-        <a style="margin-left: 20px;" class="breadcrumb" action="action" value="Back" onclick="window.history.go(-1); return false">${parent_dir}</a>
-%endif
-%if current_dir != gazee.COMIC_PATH:
-        <a style="margin-left: 20px;" class="breadcrumb" href="#!">${current_dir}</a>
-%endif
-      </div>
-    </div>
-    <div class="row">
-      <div>
-        <div class="row">
-            <div id="library">
-              <div class="row center-cols center-align">
-% for directory in directories:
-                <div class="col s10 m5 l2">
-                  <div class="card">
-                    <div class="card-image hoverable">
-                      <a href="/library?parent=${parent_dir | u}&directory=${directory['DirectoryName'] | u}&page_num=1"><img id="comic-image" src="${directory['DirectoryImage']}"></a>
-                    </div>
-                    <div class="card-content hoverable" id="directory-card-content">
-                      <p class="flow-text" style="width:100%;"><a href="/library?parent=${parent_dir | u}&directory=${directory['DirectoryName'] | u}&page_num=1" id="library-link">${directory['DirectoryName']}</span></a>
-                    </div>
-                  </div>
-                </div>
-% endfor
-                 <ul class="pagination">
-% if current_page == 1:
-                   <li class="disabled"><a href="#!"><i class="material-icons">chevron_left</i></a></li>
-% else:
-
-                   <li class=""><a href="/library?parent=${parent_dir | u}&directory=${current_dir | u}&page_num=${current_page - 1}"><i class="material-icons">chevron_left</i></a></li>
-% endif
-% for i in range(1, num_of_pages + 1):
-    % if i == current_page:
-                   <li id="pagination-num" class="active"><a href="#!">${i}</a></li>
-    % else:
-                   <li id="pagination-num"><a href="/library?parent=${parent_dir | u}&directory=${current_dir | u}&page_num=${i}">${i}</a></li>
-    % endif
-% endfor
-% if current_page == num_of_pages:
-                   <li class="disabled"><a href="#!"><i class="material-icons">chevron_right</i></a></li>
-% else:
-                    <li class=""><a href="/library?parent=${parent_dir | u}&directory=${current_dir | u}&page_num=${current_page + 1}"><i class="material-icons">chevron_right</i></a></li>
-% endif
-                </ul>
-% for comic in comics:
-                <div class="col s10 m5 l2">
-                  <div class="card">
-                    <div class="card-image hoverable">
-                      <a href="/read_comic?cid=${comic['Key'] | u}" id="read-link"><img id="comic-image" src="${comic['ComicImage']}"></a>
-                    </div>
-                    <div class="card-content hoverable" id="comic-card-content">
-                      <p class="activator flow-text" style="width:100%;">${comic['ComicName']} ${comic['ComicIssue']}</span>
-                    </div>
-                    <div class="card-reveal" id="summary-pane">
-                      <span class="card-title">
-                        <i class="material-icons right">close</i>
-                      </span>
-                      <a href="downloadComic?comic_path=${os.path.abspath(comic['ComicPath']) | u}"><i class="material-icons">file_download</i></a>
-                      <p class="" style="font-size: 0.9em"><a href="/read_comic?cid=${comic['Key'] | u}" id="read-link">${comic['ComicSummary']}</a></p>
-                    </div>
-                  </div>
-                </div>
-% endfor
+            <div class="col col-sm align-self-center">
+                Num. Unprocessed: ${nup}
             </div>
-          </div>
+            <div class="col col-sm align-self-center">
+                Unprocessed Space: ${tunp}
+            </div>
+            <div class="col col-sm align-self-center">
+                Recently Added Comics: ${num_recent}
+            </div>
+            <div class="col col-sm align-self-center">
+                Total Shared: ${total_bytes}
+            </div>
         </div>
-      </div>
     </div>
-  </main>
-
-  <footer class="page-footer" id="footer">
-    <div class="container">
-      <div class="row">
-        <div class="col s12">
-        </div>
-      </div>
-    </div>
-  </footer>
+</footer>
+<div id="spindiv" style="display: none;">
+    <img src="/static/images/flip-book.svg">
+    <div id="spindivmsg">Please Wait... Decompressing...</div>
+</div>
 	
-  <script type="text/javascript" src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
-  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.6/js/materialize.min.js"></script>
-
-  <script type="text/javascript">
+<script type="text/javascript">
+      pagebusy = 0
+      function grab_comic_stats() {
+          u = "/cstats"
+          $.getJSON(u).done(function(data) {
+              console.log(data)
+              hdrs = ["Total Number of Comics:", "Num. Unprocessed:", "Unprocessed Space:", "Recently Added Comics:", "Total Shared:"]
+              hstr = ""
+              for (i=0; i<5; ++i) {
+                  hstr += "<div class=\"col col-sm align-self-center\">" + hdrs[i] + " " + data[i] + "</div>"
+              }
+              $('footer div.row').html(hstr)
+          })
+          $.timeout(60000).done(function() { grab_comic_stats() });
+      }
+      
       $(document).ready(function() {
+        check_hash_change()
+        $.timeout(60000).done(function() { grab_comic_stats() });
+        
+        $(window).on('hashchange', function() {
+            check_hash_change()
+        });
+        $('#pgcontent').on('click', 'span.paglink', function() {
+            if ($(this).is('.disabled')) {
+                console.debug("Link is disabled.  Ignoring.")
+                return;
+            }
+
+            var pgnum = $(this).attr('pg')
+            var hval = window.location.hash.substr(1)
+            
+            console.log("Clicked on " + pgnum)
+            
+            if (hval != pgnum) {
+                console.log("Switching hash to " + pgnum)
+                window.location.hash = pgnum
+            } else {
+                console.debug("Hash=" + hval + " pgnum: " + pgnum)
+            }
+        })
+        
         $("#dropdown-item").click(function() {
           window.location.href = $(this).attr('href');
         });
+        
+        $('#setanc').click(function() {
+          show_config();
+        });
+        
+        $('#pgcontent').on('click', 'span.uline i.dlicon', function() {
+           var cid = $(this).attr('cid')
+           console.log("Clicked on the dlicon for CID: " + cid)
+           var u = '/dlbook?id=' + cid
+           window.location.href = u;
+           return;
+        });
+        
+        $('#pgcontent').on('click', 'span.uline i.expicon', function() {
+           var ttxt = $(this).text();
+           var cid = $(this).attr('cid')
+           var tht = $('#outcov' + cid).height()
+           if (ttxt == 'expand_less') {
+               var nht = "" + tht + "px"
+               $('#cov' + cid).velocity({ height: "0px"}, 300)
+               $('#outcov' + cid + ' div.ucwrap').velocity({ height: nht}, 300)
+               $(this).text('expand_more')
+           } else {
+               var nht = "" + (tht - 45) + "px"
+               $('#cov' + cid).velocity({ height: nht}, 300)
+               $('#outcov' + cid + ' div.ucwrap').velocity({ height: "45px"}, 300)
+               $(this).text('expand_less')
+           }
+        });
+        
+        $(document).on('keydown', function(e) {
+            var delta = null
+            
+            if (e.which === 39) {
+//                console.log(e);
+                if (e.shiftKey)
+                    delta = 10
+                else
+                    delta = 1
+            } else if (e.which === 37) {
+//                console.log(e);
+                if (e.shiftKey)
+                    delta = -10
+                else
+                    delta = -1
+            }
+            if (delta !== null)
+                change_page(delta)
+        })
+        
+        $('#btn-cancel').on('click', function(e) {
+            e.preventDefault()
+            $('#gazeeconf').hide()
+            $('header').show()
+            $('footer').show()
+            $('#pgcontent').show()
+        })
+        
+        $('#scanbutton').on('click', function(e) {
+            e.preventDefault()
+            $.post('/do_rescan', function() { console.log("Called /do_rescan.") })
+        })
+        $('#restartbutton').on('click', function(e) {
+            e.preventDefault()
+            $.post('/restart', function() { console.log("Called /restart.") })
+        })
+        $('#exitbutton').on('click', function(e) {
+            e.preventDefault()
+            $.post('/shutdown', function() { console.log("Called /shutdown.") })
+        })
+        
+        $('#pgcontent').on('click', 'img.smcover', function() {
+            $('#spindiv').show()
+            var tsid = $(this).attr('sid')
+            var u = '/?page_num=1&series_id=' + tsid
+            push_link()
+            window.location.href = u
+            return
+         })
+        
+        $('#gazeeconf button.btn-primary').on('click', function(e) {
+            e.preventDefault()
+
+            var u = "/save_settings?" + $('form').serialize()
+            $.getJSON(u).done(function(data) {
+                window.location.reload()
+            })
+        })
       });
-  </script>
+      
+      function save_last_index_page(pg) {
+        window.localStorage.setItem('index-lastpage', '' + pg)
+//        console.log("Current last index page: " + pg)
+      }
+      
+      function check_hash_change() {
+          
+          var curl = $('span.paglink.active').attr('pg')
+          var loadpg = parseInt($('span.pagination').attr('loadpg'), 10)
+          var newpg = $('span.pagination').attr('newpg')
+          var hval = window.location.hash.substr(1)
+          console.log("Saw a hash change hval: " + hval + " curl: " + curl)
+          
+
+          if ((hval === '') || (hval === curl)) {
+             save_last_index_page(curl)
+             console.log("On proper page already.")
+             return
+          }
+
+          var u = '/sindex?page_num=' + hval
+          $('#pgcontent').load(u, function() {
+              $(document).scrollTop(0)
+              var pgnum = $('span.paglink.active').attr('pg');
+              save_last_index_page(pgnum)
+//              console.log("Injected url: " + u)
+          })
+      }
+      
+      function start_hidden_page_load(newpg, loadpg, newid) {
+          if (loadpg >= 0) {
+              $.getJSON('/sjindex?load_page=' + loadpg + "&cur_page=" + newpg).done(function(data) {
+//                 var newid = $('span.pagination').attr('newid')
+                 var tpg = data.pop()
+                 $('#pagination').html(tpg)
+                 var curl = $('span.paglink.active').attr('pg')
+                 var sel = '#' + newid + ' div.outerguess'
+                 var lenog = $(sel).length
+                 console.log("The newpg is: " + newpg + " and curl is: " + curl)
+                 $(sel).each(function(i) {
+                    var oldid = '#' + $(this).attr('id')
+                    var jd = data[i]
+                    var k = data[i].Key
+//                    console.log("Oldid: " + oldid + "  k: " + k)
+                    var cname = jd.SeriesName
+                    var dstyle = jd.DispStyle
+                    if (dstyle === '') {
+                        dval = ''
+                    } else {
+                        dval = 'none'
+                    }
+
+                    var ct = "cov" + k
+                    var oct = "outcov" + k
+                    $(oldid + " img.smcover").attr('sid', k).attr('src', '/cover?cid=' + jd.ComicID)
+                    $(oldid + " div.ubooktitle").text(cname)
+                    $(oldid + " div.coverthumb").attr('id', ct)
+                    $(oldid).attr('id', oct)
+                    $('#' + oct + " div.sizepg span:first").text("Books: " + jd.NumComics)
+                    $('#' + oct + " div.sizepg span:last").text("Size: " + jd.TotalSize)
+                    $('#' + oct).css('display', dval)
+                 })
+                 curl = $('span.paglink.active').attr('pg')
+                 console.log("Setting new hash value to: " + newpg + " with curl: "  + curl)
+                 window.location.hash = newpg
+                 pagebusy = false;
+              })
+              return;
+          } else {
+              console.log("loadpg: " + loadpg)
+              pagebusy = false;
+          }
+      }
+      
+      function change_page(delta) {
+          console.log("change_page(" + delta + ")")
+          if (pagebusy) {
+              console.log("Page busy...")
+              return
+          }
+          
+          if ($('#threescreens').is('.velocity-animating')) {
+              console.log("Screens are already animated.  Aborting.")
+              return
+          }
+          pagebusy = true
+          
+          var curpg = parseInt($('span.paglink.active').text(), 10)
+          var lastpg = parseInt($('ul.pagination').attr('lastpg'), 10)
+          var newpg = (curpg + delta)
+          $('span.pagination').attr('newpg', newpg)
+          if ((newpg < 1) || (newpg > lastpg)) {
+              console.log("newpg is invalid: " + newpg)
+              pagebusy = false
+              return
+          }
+          
+          var loadpage=null;
+          var newid=null;
+          
+          if (delta > 0) {
+              console.log("Handling delta of +" + delta)
+              var rem=$('#threescreens > div:first-of-type').remove();
+              newid=$(rem).attr('id');
+              $('#threescreens').append(rem)
+              var newfirst = $('#threescreens > div:first-of-type').attr('id')
+              console.log("removed element was: " + newid + " newfirst: " + newfirst)
+              loadpage = newpg + 1
+              start_hidden_page_load(newpg, loadpage, newid)
+              $('span.pagination').attr('loadpg', loadpage)
+              
+              console.log("Load next page " + loadpage + " onto: " + newid);
+              
+              $('#threescreens').css('margin-left', '0px').velocity({'margin-left': '-100vw'}, { duration: 500 } )
+          } else {
+              console.log("handling delta of " + delta)
+              var rem=$('#threescreens > div:last-of-type').remove();
+              newid=$(rem).attr('id');
+              loadpage = newpg - 1
+              start_hidden_page_load(newpg, loadpage, newid)
+              $('span.pagination').attr('loadpg', loadpage)
+              $('#threescreens').prepend(rem)
+              
+              console.log("Load previous page " + loadpage + " onto: " + newid);
+              
+              $('#threescreens').css('margin-left', '-200vw').velocity({'margin-left': '-100vw'}, { duration: 500 })
+          }
+          console.log("LEaving change_page().")
+      }
+      
+      function show_config() {
+          $.getJSON('/load_settings').done(function(data) {
+              baval = (data.bindAddress == '0.0.0.0') ? 2 : 1
+              $('#gazeeconf').show()
+              $('header').hide()
+              $('footer').hide()
+              $('#pgcontent').hide()
+              $(document).scrollTop(0)
+              $('#cpinput').val(data.comicPath)
+              $('#tpinput').val(data.tempPath)
+              $('#thumbsel').val(data.thumbRes)
+              $('#csiinput').val(data.scanInterval)
+              $('#nppinput').val(data.perPage)
+              $('#portinput').val(data.bindPort)
+              $('#bindaddrsel').val(baval)
+              start_timer()
+          })
+      }
+      
+      function start_timer() {
+          if (! $('#gazeeconf').is(':visible')) {
+              console.log("Ending timer, gazeeconf is no longer visible.")
+              return
+          }
+          $.getJSON('/get_scantime').done(function(data) {
+              var tval = data.scan_time
+              var timestr
+              var pending = data.pending
+              var numrecs = data.numrecs
+              var numstr = "" + pending + " of " + numrecs
+              
+              
+              if (tval == -1) {
+                  timestr = "Not Active"
+              } else {
+                  var nmin = Math.floor(tval / 60)
+                  var nsec = Math.floor(tval % 60)
+                  var nsecstr = "00" + nsec
+                  nsecstr = nsecstr.substr(-2)
+                  timestr = "Duration: " + nmin + ":" + nsecstr
+              }
+              var pct = Math.round(data.pct * 10000) / 100
+              $('#scanprog').css('width', "" + pct + "%").attr('aria-valuenow', pct).text("" + pct + "%")
+              $('#scantime').text(timestr)
+              $('#pending').text(numstr)
+              
+              
+          }).then(function() {
+              $.timeout(5000).done(function(data) {
+                  start_timer();
+              });
+          })
+      }
+
+      
+      function push_link() {
+          var loc = window.location.href
+          var larr = []
+          var lstor = window.localStorage.getItem('last-location')
+          if (lstor !== null) {
+              larr = JSON.parse(lstor)
+          }
+              
+          larr.push(loc)
+          var jstr = JSON.stringify(larr)
+          window.localStorage.setItem('last-location', jstr)
+      }
+       
+      function pop_link() {
+          var series_id = parseInt($('span.pagination').attr('series_id'), 10)
+          var locstr = window.localStorage.getItem('last-location')
+          if (locstr === null) {
+              if (series_id === -1) {
+                  return "/"
+              } else {
+                  return "/library"
+              }
+          }
+          
+          var larr = JSON.parse(locstr)
+          var loc = larr.pop()
+          var sstr = JSON.stringify(larr)
+          window.localStorage.setItem('last-location', sstr)
+            
+          return loc
+      }
+      
+</script>
 	
 </body>
 </html>
-</div>

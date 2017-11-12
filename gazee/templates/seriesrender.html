@@ -1,0 +1,78 @@
+<%page args="comics1, comics2, comics3, maxht, maxwid" />
+              <div id="threescreens" style="display: flex;width: 300vw;margin-left: -100vw;">
+              <div id="screen_1" style="width: 100vw;">
+% for comic in comics1:
+                  <div class="outerguess" id="outcov${comic['Key']}" style="height: ${maxht + 45}px; ${comic['DispStyle']}">
+                    <figure style="width: ${maxwid}px;">
+                      <div id="cov${comic['Key']}" class="coverthumb" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
+                          <img class="smcover" sid="${comic['Key']}" style="max-height: ${maxht}px;" src="/cover?cid=${comic['ComicID']}">
+                      </div>
+                      <figcaption>
+                        <div class="ucwrap" style="height: 45px">
+                          <span class="uline">
+                          <div class="ubooktitle">
+                            ${comic['SeriesName'] | h}
+                          </div>
+                          </span>
+
+                          <div class="sizepg">
+                          <span class="pgclass" style="float:left;">Comics: ${comic['NumComics']}</span>
+                          <span class="szclass" style="float:right;">Size: ${comic['TotalSize']}</span>
+                          </div>
+                        </div>
+                      </figcaption>
+                    </figure>
+                  </div>
+% endfor
+              </div>
+              <div id="onscreencomics" style="width: 100vw;">
+% for comic in comics2:
+                  <div class="outerguess" id="outcov${comic['Key']}" style="height: ${maxht + 45}px; ${comic['DispStyle']}">
+                    <figure style="width: ${maxwid}px;">
+                      <div id="cov${comic['Key']}" class="coverthumb" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
+                          <img class="smcover" sid="${comic['Key']}" style="max-height: ${maxht}px;" src="/cover?cid=${comic['ComicID']}">
+                      </div>
+                      <figcaption>
+                        <div class="ucwrap" style="height: 45px">
+                          <span class="uline">
+                          <div class="ubooktitle">
+                            ${comic['SeriesName'] | h}
+                          </div>
+                          </span>
+
+                          <div class="sizepg">
+                          <span class="pgclass" style="float:left;">Comics: ${comic['NumComics']}</span>
+                          <span class="szclass" style="float:right;">Size: ${comic['TotalSize']}</span>
+                          </div>
+                        </div>
+                      </figcaption>
+                    </figure>
+                  </div>
+% endfor
+              </div>
+              <div id="screen_3" style="width: 100vw;">
+% for comic in comics3:
+                  <div class="outerguess" id="outcov${comic['Key']}" style="height: ${maxht + 45}px; ${comic['DispStyle']}">
+                    <figure style="width: ${maxwid}px;">
+                      <div id="cov${comic['Key']}" class="coverthumb" style="height: ${maxht}px; overflow: hidden; margin: 0px auto;">
+                          <img class="smcover" sid="${comic['Key']}" style="max-height: ${maxht}px;" src="/cover?cid=${comic['ComicID']}">
+                      </div>
+                      <figcaption>
+                        <div class="ucwrap" style="height: 45px">
+                          <span class="uline">
+                          <div class="ubooktitle">
+                            ${comic['SeriesName'] | h}
+                          </div>
+                          </span>
+
+                          <div class="sizepg">
+                          <span class="pgclass" style="float:left;">Comics: ${comic['NumComics']}</span>
+                          <span class="szclass" style="float:right;">Size: ${comic['TotalSize']}</span>
+                          </div>
+                        </div>
+                      </figcaption>
+                    </figure>
+                  </div>
+% endfor
+              </div>
+              </div>
